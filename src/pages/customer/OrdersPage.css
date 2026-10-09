@@ -1,0 +1,63 @@
+/*
+=========================================================
+SMART CAFE - CUSTOMER ORDERS
+=========================================================
+
+This stylesheet contains only the styles introduced or
+used by OrdersPage.
+
+=========================================================
+*/
+
+/* =========================================================
+   CURRENT ORDER STATUS
+   ========================================================= */
+
+.customer-order-status {
+  margin: 20px 0;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--surface, #f7f7f7);
+  border: 1px solid #e5e5e5;
+}
+
+.customer-order-status h3 {
+  margin: 6px 0 0;
+  font-size: 20px;
+}
+
+/* Status explanation shown below the current status */
+.order-status-message {
+  margin: 8px 0 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   ACTION BUTTONS
+   ========================================================= */
+
+.order-action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+  .customer-order-status {
+    padding: 15px;
+  }
+
+  .order-action-buttons {
+    width: 100%;
+  }
+
+  .order-action-buttons a {
+    width: 100%;
+    text-align: center;
+  }
+}

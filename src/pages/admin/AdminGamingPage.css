@@ -1,0 +1,725 @@
+
+/* =====================================================
+   SMART CAFE - ADMIN GAMING MANAGEMENT
+   PHASE 20.4: SESSION SEARCH + STATUS FILTERS
+   ===================================================== */
+
+.admin-gaming {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #1f2937;
+}
+
+/* Page heading */
+
+.admin-gaming__heading {
+  margin-bottom: 24px;
+}
+
+.admin-gaming__breadcrumb {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.admin-gaming__title {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.admin-gaming__description {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* Summary cards */
+
+.admin-gaming__summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.admin-gaming__summary-card {
+  min-width: 0;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 3%);
+}
+
+.admin-gaming__summary-label {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.admin-gaming__summary-value {
+  margin: 10px 0 0;
+  color: #111827;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.admin-gaming__summary-card--active
+  .admin-gaming__summary-value {
+  color: #15803d;
+}
+
+.admin-gaming__summary-card--closing
+  .admin-gaming__summary-value {
+  color: #b45309;
+}
+
+.admin-gaming__summary-card--expired
+  .admin-gaming__summary-value {
+  color: #4b5563;
+}
+
+.admin-gaming__summary-card--cancelled
+  .admin-gaming__summary-value {
+  color: #b91c1c;
+}
+
+/* Sessions panel */
+
+.admin-gaming__panel {
+  min-width: 0;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 3%);
+}
+
+.admin-gaming__panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-gaming__panel-title {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+}
+
+/* Session search */
+
+.admin-gaming__search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.admin-gaming__search-label {
+  width: 100%;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-gaming__search-input {
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: 520px;
+  padding: 11px 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+}
+
+.admin-gaming__search-input:focus {
+  border-color: #2563eb;
+  outline: 2px solid #bfdbfe;
+  outline-offset: 1px;
+}
+
+.admin-gaming__search-input::placeholder {
+  color: #9ca3af;
+}
+
+.admin-gaming__clear-search {
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.admin-gaming__clear-search:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+}
+
+.admin-gaming__clear-search:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+/* Status filters */
+
+.admin-gaming__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-gaming__filter-button {
+  padding: 9px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.admin-gaming__filter-button:hover {
+  border-color: #374151;
+  background: #f9fafb;
+}
+
+.admin-gaming__filter-button--selected {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.admin-gaming__filter-button--selected:hover {
+  background: #374151;
+  color: #ffffff;
+}
+
+.admin-gaming__filter-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+/* Results information */
+
+.admin-gaming__results {
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Table */
+
+.admin-gaming__table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.admin-gaming__table {
+  width: 100%;
+  min-width: 1000px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-gaming__table thead {
+  background: #f9fafb;
+}
+
+.admin-gaming__table th {
+  padding: 13px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-gaming__table td {
+  padding: 14px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.admin-gaming__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-gaming__table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.admin-gaming__session-id {
+  display: block;
+  max-width: 190px;
+  color: #111827;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.admin-gaming__order-id {
+  display: block;
+  max-width: 150px;
+  overflow-wrap: anywhere;
+}
+
+.admin-gaming__game-mode {
+  margin-bottom: 5px;
+  color: #111827;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.admin-gaming__game-id {
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.admin-gaming__date {
+  min-width: 150px;
+  line-height: 1.5;
+}
+
+.admin-gaming__remaining {
+  color: #111827;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Status badges */
+
+.admin-gaming__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.admin-gaming__status--active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-gaming__status--closing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-gaming__status--expired {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.admin-gaming__status--cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Empty state */
+
+.admin-gaming__empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.admin-gaming__empty-title {
+  margin: 0 0 8px;
+  color: #374151;
+  font-size: 18px;
+}
+
+.admin-gaming__empty-description {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Responsive layout */
+
+@media (max-width: 1100px) {
+  .admin-gaming__summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-gaming {
+    padding: 16px;
+  }
+
+  .admin-gaming__title {
+    font-size: 24px;
+  }
+
+  .admin-gaming__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-gaming__summary-card {
+    padding: 14px;
+  }
+
+  .admin-gaming__summary-value {
+    font-size: 24px;
+  }
+
+  .admin-gaming__panel {
+    padding: 14px;
+  }
+
+  .admin-gaming__panel-title {
+    font-size: 18px;
+  }
+
+  .admin-gaming__filter-button {
+    padding: 8px 11px;
+    font-size: 13px;
+  }
+
+  .admin-gaming__search-input {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .admin-gaming__summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =====================================================
+   PHASE 20.5: SESSION DETAILS
+   ===================================================== */
+
+/* View details action */
+
+.admin-gaming__details-button {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  background: #111827;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.admin-gaming__details-button:hover {
+  background: #374151;
+}
+
+.admin-gaming__details-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+/* Modal backdrop */
+
+.admin-gaming__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgb(17 24 39 / 60%);
+}
+
+/* Details dialog */
+
+.admin-gaming__modal {
+  width: 100%;
+  max-width: 760px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 20%);
+}
+
+.admin-gaming__modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.admin-gaming__modal-title {
+  margin: 0;
+  color: #111827;
+  font-size: 24px;
+}
+
+.admin-gaming__modal-close {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.admin-gaming__modal-close:hover {
+  background: #f3f4f6;
+}
+
+.admin-gaming__modal-close:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+/* Session information grid */
+
+.admin-gaming__details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-gaming__detail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #f9fafb;
+}
+
+.admin-gaming__detail > span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-gaming__detail > strong {
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* Dialog footer */
+
+.admin-gaming__modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Responsive dialog */
+
+@media (max-width: 600px) {
+  .admin-gaming__modal-backdrop {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .admin-gaming__modal {
+    max-height: calc(100vh - 24px);
+    padding: 18px;
+    border-radius: 10px;
+  }
+
+  .admin-gaming__modal-title {
+    font-size: 21px;
+  }
+
+  .admin-gaming__details-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+
+/* =====================================================
+   PHASE 20.6 - SESSION ACTIONS
+   ===================================================== */
+
+.admin-gaming__row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-gaming__action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-gaming__action-button:hover {
+  transform: translateY(-1px);
+}
+
+.admin-gaming__action-button:focus-visible,
+.admin-gaming__details-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.admin-gaming__action-button--end {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.admin-gaming__action-button--end:hover {
+  background: #fde68a;
+}
+
+.admin-gaming__action-button--cancel {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.admin-gaming__action-button--cancel:hover {
+  background: #fecaca;
+}
+
+/* =====================================================
+   PHASE 20.6 - CONFIRMATION DIALOG
+   ===================================================== */
+
+.admin-gaming__confirm-backdrop {
+  z-index: 1100;
+}
+
+.admin-gaming__confirm-dialog {
+  width: min(100%, 480px);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 25px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 14px;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-color, #111827);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 22%);
+}
+
+.admin-gaming__confirm-description {
+  margin: 14px 0 20px;
+  color: var(--muted-text, #6b7280);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.admin-gaming__confirm-info {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1.5fr);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 9px;
+  overflow-wrap: anywhere;
+}
+
+.admin-gaming__confirm-info > span {
+  color: var(--muted-text, #6b7280);
+  font-size: 0.85rem;
+}
+
+.admin-gaming__confirm-info > strong {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.admin-gaming__confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* =====================================================
+   RESPONSIVE ACTIONS
+   ===================================================== */
+
+@media (max-width: 600px) {
+  .admin-gaming__row-actions {
+    min-width: 145px;
+  }
+
+  .admin-gaming__confirm-dialog {
+    padding: 18px;
+  }
+
+  .admin-gaming__confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-gaming__confirm-actions button {
+    width: 100%;
+  }
+}

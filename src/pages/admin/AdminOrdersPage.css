@@ -1,0 +1,493 @@
+/*
+=========================================================
+SMART CAFE
+ADMIN ORDERS PAGE STYLES
+
+Phase 17.9
+=========================================================
+*/
+
+.admin-orders-page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* =======================================================
+   HEADER
+======================================================= */
+
+.admin-orders-header {
+  margin-bottom: 24px;
+}
+
+.admin-orders-eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #666;
+  letter-spacing: 1px;
+}
+
+.admin-orders-header h1 {
+  margin: 6px 0;
+  font-size: 32px;
+}
+
+.admin-orders-description {
+  margin: 0;
+  color: #666;
+}
+
+/* =======================================================
+   SUMMARY CARDS
+======================================================= */
+
+.admin-order-summary-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.admin-order-summary-card {
+  padding: 18px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-order-summary-card span {
+  display: block;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.admin-order-summary-card strong {
+  display: block;
+  font-size: 28px;
+}
+
+/* =======================================================
+   FILTERS
+======================================================= */
+
+.admin-order-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 18px;
+  margin-bottom: 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-order-search {
+  flex: 1;
+  min-width: 260px;
+}
+
+.admin-order-search label,
+.admin-order-filter-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-order-search input,
+.admin-order-filter-field select,
+.admin-order-status-control select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
+.admin-order-filter-field {
+  width: 190px;
+}
+
+.admin-order-clear-button,
+.admin-order-empty-button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.admin-order-clear-button:hover,
+.admin-order-empty-button:hover {
+  background: #f5f5f5;
+}
+
+/* =======================================================
+   RESULTS
+======================================================= */
+
+.admin-order-results-info {
+  margin-bottom: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* =======================================================
+   EMPTY STATE
+======================================================= */
+
+.admin-orders-empty {
+  padding: 40px;
+  text-align: center;
+  border: 1px dashed #ccc;
+  border-radius: 12px;
+}
+
+.admin-orders-empty h2 {
+  margin-top: 0;
+}
+
+.admin-orders-empty p {
+  color: #666;
+  margin-bottom: 18px;
+}
+
+/* =======================================================
+   ORDER LIST
+======================================================= */
+
+.admin-order-list {
+  display: grid;
+  gap: 20px;
+}
+
+/* =======================================================
+   ORDER CARD
+======================================================= */
+
+.admin-order-card {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  background: #fff;
+}
+
+/* =======================================================
+   ORDER HEADER
+======================================================= */
+
+.admin-order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.admin-order-card-header h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.admin-order-type {
+  margin: 0 0 4px;
+  color: #444;
+  font-weight: 600;
+}
+
+.admin-order-created {
+  margin: 0;
+  color: #777;
+  font-size: 13px;
+}
+
+.admin-order-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-order-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f1f1f1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-order-details-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-order-details-button:hover {
+  background: #f5f5f5;
+}
+
+/* =======================================================
+   STATUS COLORS
+======================================================= */
+
+.admin-order-status-created {
+  background: #f2f2f2;
+}
+
+.admin-order-status-payment-pending {
+  background: #fff3cd;
+}
+
+.admin-order-status-confirmed {
+  background: #e8f1ff;
+}
+
+.admin-order-status-accepted {
+  background: #e5f2ff;
+}
+
+.admin-order-status-preparing {
+  background: #fff0d6;
+}
+
+.admin-order-status-ready {
+  background: #e6f7e9;
+}
+
+.admin-order-status-served {
+  background: #e9e6ff;
+}
+
+.admin-order-status-completed {
+  background: #dff5e5;
+}
+
+.admin-order-status-cancelled {
+  background: #fbe2e2;
+}
+
+/* =======================================================
+   SECTIONS
+======================================================= */
+
+.admin-order-section {
+  margin-bottom: 18px;
+}
+
+.admin-order-section h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.admin-order-section p {
+  margin: 5px 0;
+  line-height: 1.5;
+}
+
+/* =======================================================
+   ITEMS
+======================================================= */
+
+.admin-order-items {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-order-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+}
+
+/* =======================================================
+   TOTAL
+======================================================= */
+
+.admin-order-total {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #ddd;
+}
+
+.admin-order-total > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-order-grand-total {
+  margin-top: 5px;
+  padding-top: 10px;
+  border-top: 1px solid #ddd;
+  font-size: 18px;
+}
+
+/* =======================================================
+   GAMING
+======================================================= */
+
+.admin-order-gaming {
+  margin-bottom: 18px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f5f5;
+}
+
+.admin-order-gaming p {
+  margin: 6px 0 0;
+  word-break: break-word;
+}
+
+/* =======================================================
+   STATUS CONTROL
+======================================================= */
+
+.admin-order-status-control {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 18px;
+  border-top: 1px solid #ddd;
+}
+
+.admin-order-status-control h3 {
+  margin: 0 0 4px;
+}
+
+.admin-order-status-control p {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.admin-order-status-control select {
+  width: 220px;
+}
+
+.admin-order-no-next-status {
+  color: #666;
+  font-size: 14px;
+}
+
+/* =======================================================
+   MOBILE
+======================================================= */
+
+@media (max-width: 700px) {
+  .admin-orders-page {
+    padding: 16px;
+  }
+
+  .admin-orders-header h1 {
+    font-size: 26px;
+  }
+
+  .admin-order-filters {
+    align-items: stretch;
+  }
+
+  .admin-order-search,
+  .admin-order-filter-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-order-clear-button {
+    width: 100%;
+  }
+
+  .admin-order-card {
+    padding: 16px;
+  }
+
+  .admin-order-card-header {
+    flex-direction: column;
+  }
+
+  .admin-order-header-actions {
+    width: 100%;
+  }
+
+  .admin-order-details-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .admin-order-status-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-order-status-control select {
+    width: 100%;
+  }
+
+  .admin-order-item {
+    align-items: flex-start;
+  }
+}
+
+/* =======================================================
+   PHASE 17.10 - ADVANCED FILTERS
+======================================================= */
+
+.admin-order-filters {
+  align-items: flex-end;
+}
+
+.admin-order-filter-field {
+  min-width: 170px;
+}
+
+.admin-order-results-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* =======================================================
+   MOBILE ADVANCED FILTERS
+======================================================= */
+
+@media (max-width: 900px) {
+  .admin-order-filter-field {
+    flex: 1;
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-order-filter-field {
+    width: 100%;
+    min-width: 0;
+  }
+}

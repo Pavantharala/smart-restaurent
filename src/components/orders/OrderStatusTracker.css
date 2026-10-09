@@ -1,0 +1,276 @@
+/* ============================================================
+   SMART CAFE - ORDER STATUS TRACKER
+   ============================================================ */
+
+.order-status-tracker {
+  margin-top: 24px;
+  padding: 20px;
+
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.order-tracker-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.order-tracker-eyebrow {
+  display: block;
+
+  margin-bottom: 5px;
+
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+
+  color: #6b7280;
+}
+
+.order-tracker-heading h3 {
+  margin: 0;
+
+  font-size: 18px;
+}
+
+/* ============================================================
+   CURRENT STATUS BADGE
+   ============================================================ */
+
+.order-tracker-status {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 6px 11px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.order-tracker-status.active {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.order-tracker-status.pending {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.order-tracker-status.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ============================================================
+   STEPS
+   ============================================================ */
+
+.order-tracker-steps {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   INDIVIDUAL STEP
+   ============================================================ */
+
+.order-tracker-step {
+  position: relative;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 12px;
+
+  min-height: 62px;
+}
+
+/* ============================================================
+   STEP ICON
+   ============================================================ */
+
+.order-tracker-icon {
+  position: relative;
+  z-index: 2;
+
+  width: 30px;
+  height: 30px;
+
+  flex: 0 0 30px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+/* Completed */
+
+.order-tracker-step.completed .order-tracker-icon {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* Current */
+
+.order-tracker-step.current .order-tracker-icon {
+  background: #111827;
+  color: #ffffff;
+
+  box-shadow: 0 0 0 5px #e5e7eb;
+}
+
+/* ============================================================
+   STEP CONTENT
+   ============================================================ */
+
+.order-tracker-content {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+
+  padding-top: 2px;
+}
+
+.order-tracker-content strong {
+  font-size: 14px;
+}
+
+.order-tracker-content span {
+  font-size: 12px;
+  line-height: 1.4;
+
+  color: #6b7280;
+}
+
+/* Upcoming */
+
+.order-tracker-step.upcoming .order-tracker-content strong {
+  color: #9ca3af;
+}
+
+/* Current */
+
+.order-tracker-step.current .order-tracker-content strong {
+  color: #111827;
+}
+
+/* ============================================================
+   CONNECTING LINE
+   ============================================================ */
+
+.order-tracker-line {
+  position: absolute;
+
+  left: 14px;
+  top: 30px;
+
+  width: 2px;
+  height: 32px;
+
+  background: #e5e7eb;
+}
+
+/* Completed connector */
+
+.order-tracker-step.completed .order-tracker-line {
+  background: #10b981;
+}
+
+/* ============================================================
+   LIVE MESSAGE
+   ============================================================ */
+
+.order-tracker-live-message {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  margin-top: 8px;
+  padding: 11px 13px;
+
+  border-radius: 10px;
+
+  background: #f9fafb;
+
+  font-size: 13px;
+  color: #4b5563;
+}
+
+/* Small animated-looking status indicator */
+
+.order-tracker-live-dot {
+  width: 8px;
+  height: 8px;
+
+  flex: 0 0 8px;
+
+  border-radius: 50%;
+
+  background: #10b981;
+}
+
+/* ============================================================
+   SPECIAL MESSAGES
+   ============================================================ */
+
+.order-tracker-message {
+  padding: 12px 14px;
+
+  border-radius: 10px;
+
+  font-size: 13px;
+}
+
+.order-tracker-message.pending {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.order-tracker-message.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 600px) {
+  .order-status-tracker {
+    padding: 16px;
+  }
+
+  .order-tracker-heading {
+    flex-direction: column;
+  }
+
+  .order-tracker-status {
+    align-self: flex-start;
+  }
+}

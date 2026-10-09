@@ -1,0 +1,243 @@
+/* =========================================================
+   SMART CAFE - KITCHEN ORDER CARD
+   ========================================================= */
+
+/* =========================================================
+   MAIN CARD
+   ========================================================= */
+
+.kitchen-order-card {
+  padding: 20px;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  border-radius: 14px;
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.kitchen-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kitchen-order-id {
+  margin: 0 0 6px;
+}
+
+.kitchen-order-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.kitchen-order-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.kitchen-order-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   CUSTOMER
+   ========================================================= */
+
+.kitchen-customer-box {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.kitchen-customer-name {
+  margin-top: 4px;
+}
+
+.kitchen-customer-phone {
+  margin-top: 3px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+
+/* =========================================================
+   ITEMS
+   ========================================================= */
+
+.kitchen-items-section {
+  margin-top: 18px;
+}
+
+.kitchen-items-section h3 {
+  margin: 0 0 12px;
+}
+
+.kitchen-items-list {
+  display: grid;
+  gap: 10px;
+}
+
+.kitchen-item {
+  padding: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  border-radius: 10px;
+}
+
+.kitchen-item-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kitchen-item-customizations {
+  margin-top: 6px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.kitchen-item-note {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   PAYMENT
+   ========================================================= */
+
+.kitchen-payment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.kitchen-payment-info {
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.kitchen-order-total {
+  font-size: 18px;
+}
+
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.kitchen-order-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.kitchen-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.kitchen-action-button.primary {
+  border: none;
+}
+
+.kitchen-action-button.secondary {
+  border: 1px solid currentColor;
+  background: transparent;
+}
+
+
+/* =========================================================
+   SERVED MESSAGE
+   ========================================================= */
+
+.kitchen-served-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  opacity: 0.7;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .kitchen-order-card {
+    padding: 16px;
+  }
+
+  .kitchen-item-main {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .kitchen-payment-row {
+    align-items: flex-start;
+  }
+
+  .kitchen-action-button {
+    width: 100%;
+  }
+
+}
+
+
+/* ============================================================
+   ORDER TOTAL
+   ============================================================ */
+
+.kitchen-order-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-top: 16px;
+  padding-top: 14px;
+
+  border-top: 1px solid #e5e7eb;
+
+  font-size: 14px;
+}
+
+.kitchen-order-total strong {
+  font-size: 16px;
+  font-weight: 700;
+}
