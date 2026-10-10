@@ -1,39 +1,3 @@
-// =========================================================
-// SMART CAFE - CUSTOMER WAITING LOUNGE
-// =========================================================
-//
-// PURPOSE:
-// - Shows the customer's current waiting-queue information.
-// - Shows the permanent customer-facing Queue Token.
-// - Reads the queue-entry ID saved during checkout.
-// - Gets the latest queue information from QueueContext.
-// - Shows assigned table when staff assigns one.
-// - After seating, shows the SAME order-progress experience
-//   used by the normal dine-in order tracking page.
-// - Order progress comes from OrderContext.
-// - Queue status and kitchen/order status remain separate.
-//
-// IMPORTANT:
-//
-// Queue Token:
-// - Example: WL-1003
-// - Permanent identifier for the waiting customer/group.
-//
-// Queue Position:
-// - Example: #1
-// - Can change as other customers leave the queue.
-//
-// Order Progress:
-// - Confirmed
-// - Accepted
-// - Preparing
-// - Ready
-// - Served
-// - Completed
-//
-// Payment is NOT used to control kitchen progress.
-//
-// =========================================================
 
 import { Link } from "react-router-dom";
 
@@ -50,17 +14,14 @@ import {
 import { useQueue } from "../../context/QueueContext";
 import { useTable } from "../../context/TableContext";
 import { useOrder } from "../../context/OrderContext";
+import QueueReadyNotification from "../../components/QueueReadyNotification";
 
-// ---------------------------------------------------------
-// LOCAL STORAGE KEY
-// ---------------------------------------------------------
+// =========================================================
+// SMART CAFE - CUSTOMER WAITING LOUNGE
+// =========================================================
 
 const CURRENT_QUEUE_ENTRY_KEY =
   "smart-cafe-current-queue-entry";
-
-// ---------------------------------------------------------
-// ORDER PROGRESS STEPS
-// ---------------------------------------------------------
 
 const ORDER_PROGRESS_STEPS = [
   {
@@ -95,40 +56,22 @@ const ORDER_PROGRESS_STEPS = [
   },
 ] as const;
 
-// ---------------------------------------------------------
-// COMPONENT
-// ---------------------------------------------------------
-
 export default function WaitingLoungePage() {
   // -------------------------------------------------------
-  // QUEUE DATA
+  // CONTEXT DATA
   // -------------------------------------------------------
 
   const { queue } = useQueue();
-
-  // -------------------------------------------------------
-  // TABLE DATA
-  // -------------------------------------------------------
-
   const { tables } = useTable();
-
-  // -------------------------------------------------------
-  // ORDER DATA
-  // -------------------------------------------------------
-
   const { getOrderById } = useOrder();
 
   // -------------------------------------------------------
-  // GET SAVED QUEUE ENTRY ID
+  // FIND CURRENT QUEUE ENTRY
   // -------------------------------------------------------
 
   const queueEntryId = localStorage.getItem(
     CURRENT_QUEUE_ENTRY_KEY,
   );
-
-  // -------------------------------------------------------
-  // FIND LATEST QUEUE ENTRY
-  // -------------------------------------------------------
 
   const queueEntry = queue.find(
     (entry) => entry.id === queueEntryId,
@@ -148,21 +91,13 @@ export default function WaitingLoungePage() {
   // -------------------------------------------------------
   // FIND CONNECTED ORDER
   // -------------------------------------------------------
-  //
-  // The queue entry stores the order ID.
-  //
-  // We deliberately read the actual Order from
-  // OrderContext so kitchen status changes are reflected
-  // correctly.
-  //
-  // -------------------------------------------------------
 
   const order = queueEntry?.orderId
     ? getOrderById(queueEntry.orderId)
     : undefined;
 
   // -------------------------------------------------------
-  // NO QUEUE ENTRY
+  // EMPTY STATE
   // -------------------------------------------------------
 
   if (!queueEntry) {
@@ -192,7 +127,7 @@ export default function WaitingLoungePage() {
   }
 
   // -------------------------------------------------------
-  // STATUS LABEL
+  // QUEUE STATUS
   // -------------------------------------------------------
 
   const statusLabel =
@@ -205,10 +140,6 @@ export default function WaitingLoungePage() {
           : queueEntry.status === "cancelled"
             ? "Queue Cancelled"
             : "Queue Completed";
-
-  // -------------------------------------------------------
-  // STATUS MESSAGE
-  // -------------------------------------------------------
 
   const statusMessage =
     queueEntry.status === "waiting"
@@ -239,10 +170,6 @@ export default function WaitingLoungePage() {
         )
       : -1;
 
-  // -------------------------------------------------------
-  // CURRENT ORDER STATUS MESSAGE
-  // -------------------------------------------------------
-
   const orderStatusMessage =
     orderStatus === "confirmed"
       ? "Your order has been confirmed."
@@ -258,20 +185,6 @@ export default function WaitingLoungePage() {
                 ? "Your order has been completed."
                 : "Your order is being processed.";
 
-  // -------------------------------------------------------
-  // SHOULD SHOW ORDER TRACKING?
-  // -------------------------------------------------------
-  //
-  // We show order tracking once:
-  //
-  // - table is ready
-  // OR
-  // - customer is seated
-  //
-  // If an order exists, tracking is shown.
-  //
-  // -------------------------------------------------------
-
   const shouldShowOrderTracking =
     Boolean(order) &&
     (
@@ -286,10 +199,7 @@ export default function WaitingLoungePage() {
 
   return (
     <main className="waiting-lounge-page">
-
-      {/* =================================================
-          HEADER
-      ================================================= */}
+      {/* HEADER */}
 
       <section className="waiting-lounge-header">
         <div>
@@ -300,24 +210,22 @@ export default function WaitingLoungePage() {
           <h1>Waiting Lounge</h1>
 
           <p>
-            Track your table status while
-            you relax, play and enjoy
-            your time.
+            Track your table status while you relax,
+            play and enjoy your time.
           </p>
         </div>
 
         <div className="waiting-lounge-order">
           <span>Order</span>
-
-          <strong>
-            {queueEntry.orderId ?? "N/A"}
-          </strong>
+          <strong>{queueEntry.orderId ?? "N/A"}</strong>
         </div>
       </section>
 
-      {/* =================================================
-          CUSTOMER QUEUE TOKEN
-      ================================================= */}
+      {/* QUEUE-READY NOTIFICATION */}
+
+      <QueueReadyNotification queueEntry={queueEntry} />
+
+      {/* CUSTOMER QUEUE TOKEN */}
 
       <section className="waiting-lounge-token-card">
         <div className="waiting-lounge-token-icon">
@@ -327,20 +235,15 @@ export default function WaitingLoungePage() {
         <div className="waiting-lounge-token-content">
           <span>YOUR QUEUE TOKEN</span>
 
-          <strong>
-            {queueEntry.queueToken}
-          </strong>
+          <strong>{queueEntry.queueToken}</strong>
 
           <p>
-            Keep this token handy when
-            speaking with our staff.
+            Keep this token handy when speaking with our staff.
           </p>
         </div>
       </section>
 
-      {/* =================================================
-          MAIN STATUS CARD
-      ================================================= */}
+      {/* MAIN QUEUE STATUS */}
 
       <section className="waiting-lounge-status-card">
         <div className="waiting-lounge-status-icon">
@@ -353,19 +256,13 @@ export default function WaitingLoungePage() {
           </span>
 
           <h2>{statusLabel}</h2>
-
           <p>{statusMessage}</p>
         </div>
       </section>
 
-      {/* =================================================
-          QUEUE INFORMATION
-      ================================================= */}
+      {/* QUEUE INFORMATION */}
 
       <section className="waiting-lounge-info-grid">
-
-        {/* POSITION */}
-
         <article className="waiting-lounge-info-card">
           <div className="waiting-lounge-info-icon">
             <Users size={24} />
@@ -379,8 +276,6 @@ export default function WaitingLoungePage() {
               : "—"}
           </strong>
         </article>
-
-        {/* WAIT TIME */}
 
         <article className="waiting-lounge-info-card">
           <div className="waiting-lounge-info-icon">
@@ -396,8 +291,6 @@ export default function WaitingLoungePage() {
           </strong>
         </article>
 
-        {/* PARTY SIZE */}
-
         <article className="waiting-lounge-info-card">
           <div className="waiting-lounge-info-icon">
             <Users size={24} />
@@ -405,12 +298,8 @@ export default function WaitingLoungePage() {
 
           <span>Party Size</span>
 
-          <strong>
-            {queueEntry.partySize}
-          </strong>
+          <strong>{queueEntry.partySize}</strong>
         </article>
-
-        {/* TABLE */}
 
         <article className="waiting-lounge-info-card">
           <div className="waiting-lounge-info-icon">
@@ -425,12 +314,9 @@ export default function WaitingLoungePage() {
               : "Waiting"}
           </strong>
         </article>
-
       </section>
 
-      {/* =================================================
-          TABLE READY MESSAGE
-      ================================================= */}
+      {/* TABLE-READY DETAILS */}
 
       {queueEntry.status === "table-ready" && (
         <section className="waiting-lounge-ready-card">
@@ -443,16 +329,15 @@ export default function WaitingLoungePage() {
               <p>
                 Please proceed to{" "}
                 <strong>
-                  Table {assignedTable?.number}
-                </strong>
-                .
+                  {assignedTable
+                    ? `Table ${assignedTable.number}`
+                    : "your assigned table"}
+                </strong>.
               </p>
 
               <p>
                 Queue Token:{" "}
-                <strong>
-                  {queueEntry.queueToken}
-                </strong>
+                <strong>{queueEntry.queueToken}</strong>
               </p>
             </div>
           </div>
@@ -466,40 +351,10 @@ export default function WaitingLoungePage() {
         </section>
       )}
 
-      {/* =================================================
-          ORDER PROGRESS
-          =================================================
-          
-          IMPORTANT:
-          This section appears after the customer has
-          received a table.
-
-          It reads the actual OrderContext status,
-          so the progress follows the kitchen workflow:
-
-          Confirmed
-              ↓
-          Accepted
-              ↓
-          Preparing
-              ↓
-          Ready
-              ↓
-          Served
-              ↓
-          Completed
-
-          Payment is intentionally NOT part of this
-          progress flow.
-      ================================================= */}
+      {/* ORDER PROGRESS */}
 
       {shouldShowOrderTracking && order && (
         <section className="waiting-lounge-order-progress">
-
-          {/* -------------------------------------------------
-              SECTION HEADER
-          ------------------------------------------------- */}
-
           <div className="waiting-lounge-progress-header">
             <div>
               <span className="waiting-lounge-progress-eyebrow">
@@ -514,108 +369,59 @@ export default function WaitingLoungePage() {
             </div>
           </div>
 
-          {/* -------------------------------------------------
-              PROGRESS STEPS
-          ------------------------------------------------- */}
-
           <div className="waiting-lounge-progress-steps">
+            {ORDER_PROGRESS_STEPS.map((step, index) => {
+              const isCompleted = currentStepIndex >= index;
+              const isCurrent = currentStepIndex === index;
 
-            {ORDER_PROGRESS_STEPS.map(
-              (step, index) => {
-                const isCompleted =
-                  currentStepIndex >= index;
-
-                const isCurrent =
-                  currentStepIndex === index;
-
-                return (
-                  <div
-                    key={step.status}
-                    className={`waiting-lounge-progress-step ${
-                      isCompleted
-                        ? "completed"
-                        : ""
-                    } ${
-                      isCurrent
-                        ? "current"
-                        : ""
-                    }`}
-                  >
-
-                    {/* STEP NUMBER / CHECK */}
-
-                    <div className="waiting-lounge-progress-marker">
-                      {isCompleted ? (
-                        <Check size={18} />
-                      ) : (
-                        <span>
-                          {index + 1}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* STEP CONTENT */}
-
-                    <div className="waiting-lounge-progress-step-content">
-                      <strong>
-                        {step.title}
-                      </strong>
-
-                      <p>
-                        {step.description}
-                      </p>
-                    </div>
-
+              return (
+                <div
+                  key={step.status}
+                  className={`waiting-lounge-progress-step ${
+                    isCompleted ? "completed" : ""
+                  } ${isCurrent ? "current" : ""}`}
+                >
+                  <div className="waiting-lounge-progress-marker">
+                    {isCompleted ? (
+                      <Check size={18} />
+                    ) : (
+                      <span>{index + 1}</span>
+                    )}
                   </div>
-                );
-              },
-            )}
 
+                  <div className="waiting-lounge-progress-step-content">
+                    <strong>{step.title}</strong>
+                    <p>{step.description}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          {/* -------------------------------------------------
-              CURRENT STATUS MESSAGE
-          ------------------------------------------------- */}
 
           <div className="waiting-lounge-current-order-message">
-            <strong>
-              {orderStatusMessage}
-            </strong>
+            <strong>{orderStatusMessage}</strong>
           </div>
 
-          {/* -------------------------------------------------
-              ORDER SUMMARY
-          ------------------------------------------------- */}
+          {/* ORDER SUMMARY */}
 
           <div className="waiting-lounge-order-summary">
-
             <div>
               <span>Order ID</span>
-
-              <strong>
-                {order.id}
-              </strong>
+              <strong>{order.id}</strong>
             </div>
 
             <div>
               <span>Customer</span>
-
-              <strong>
-                {order.customer.name}
-              </strong>
+              <strong>{order.customer.name}</strong>
             </div>
 
             <div>
               <span>Order Type</span>
-
-              <strong>
-                Waiting Lounge
-              </strong>
+              <strong>Waiting Lounge</strong>
             </div>
 
             <div>
               <span>Table</span>
-
               <strong>
                 {assignedTable
                   ? `Table ${assignedTable.number}`
@@ -625,7 +431,6 @@ export default function WaitingLoungePage() {
 
             <div>
               <span>Payment</span>
-
               <strong>
                 {order.paymentStatus === "paid"
                   ? "Payment Successful"
@@ -637,20 +442,15 @@ export default function WaitingLoungePage() {
 
             <div>
               <span>Total</span>
-
               <strong>
                 ₹{order.totalAmount.toFixed(0)}
               </strong>
             </div>
-
           </div>
 
-          {/* -------------------------------------------------
-              ACTIONS
-          ------------------------------------------------- */}
+          {/* ACTIONS */}
 
           <div className="waiting-lounge-order-actions">
-
             <Link
               to="/orders"
               className="waiting-lounge-button"
@@ -664,20 +464,15 @@ export default function WaitingLoungePage() {
             >
               Order More
             </Link>
-
           </div>
-
         </section>
       )}
 
-      {/* =================================================
-          GAMING SECTION
-      ================================================= */}
+      {/* GAMING SECTION */}
 
       {(queueEntry.status === "waiting" ||
         queueEntry.status === "table-ready") && (
         <section className="waiting-lounge-gaming-card">
-
           <div className="waiting-lounge-gaming-icon">
             <Gamepad2 size={32} />
           </div>
@@ -688,10 +483,8 @@ export default function WaitingLoungePage() {
             <h2>Play Games in the Lounge</h2>
 
             <p>
-              Your waiting time doesn't
-              have to feel like waiting.
-              Enjoy games while your table
-              is being prepared.
+              Your waiting time doesn't have to feel like waiting.
+              Enjoy games while your table is being prepared.
             </p>
 
             <Link
@@ -702,17 +495,13 @@ export default function WaitingLoungePage() {
               Explore Games
             </Link>
           </div>
-
         </section>
       )}
 
-      {/* =================================================
-          ADD-ONS / FOOD PROMOTION
-      ================================================= */}
+      {/* FOOD PROMOTION */}
 
       {queueEntry.status === "waiting" && (
         <section className="waiting-lounge-addons-card">
-
           <div className="waiting-lounge-addons-icon">
             <UtensilsCrossed size={28} />
           </div>
@@ -720,14 +509,11 @@ export default function WaitingLoungePage() {
           <div>
             <span>MAKE YOUR WAIT BETTER</span>
 
-            <h2>
-              Want Something While You Wait?
-            </h2>
+            <h2>Want Something While You Wait?</h2>
 
             <p>
-              Add cool drinks, snacks or
-              extra food to your order while
-              relaxing in the lounge.
+              Add cool drinks, snacks or extra food to your order
+              while relaxing in the lounge.
             </p>
 
             <Link
@@ -737,47 +523,36 @@ export default function WaitingLoungePage() {
               Browse Menu
             </Link>
           </div>
-
         </section>
       )}
 
-      {/* =================================================
-          ORDER INFORMATION
-      ================================================= */}
+      {/* ORDER INFORMATION */}
 
       <section className="waiting-lounge-order-card">
-
         <div>
           <span>Order ID</span>
-
-          <strong>
-            {queueEntry.orderId ?? "Not Available"}
-          </strong>
+          <strong>{queueEntry.orderId ?? "Not Available"}</strong>
         </div>
 
         <div>
           <span>Queue Token</span>
-
-          <strong>
-            {queueEntry.queueToken}
-          </strong>
+          <strong>{queueEntry.queueToken}</strong>
         </div>
 
         <div>
           <span>Joined</span>
 
           <strong>
-            {new Date(
-              queueEntry.joinedAt,
-            ).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {new Date(queueEntry.joinedAt).toLocaleTimeString(
+              [],
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              },
+            )}
           </strong>
         </div>
-
       </section>
-
     </main>
   );
 }

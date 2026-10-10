@@ -1,0 +1,26 @@
+
+.queue-ready-notification {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #86c99a;
+  border-radius: 12px;
+  background: #effaf1;
+  color: #205b32;
+}
+
+.queue-ready-notification p {
+  margin: 4px 0 0;
+}
+
+.queue-ready-notification button {
+  margin-left: auto;
+  padding: 8px 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
