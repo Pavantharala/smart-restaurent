@@ -1,27 +1,16 @@
-// ============================================================
+
+ // ============================================================
 // SMART CAFE - MENU CONTEXT
 // ============================================================
 //
-// Central source of truth for menu data.
+// Phase 22.2: Advanced menu add-on validation.
 //
-// Responsibilities:
-// - Load menu from localStorage
-// - Migrate older menu data
-// - Normalize and validate menu items
-// - Add menu items
-// - Update menu items
-// - Delete menu items
-// - Toggle availability
-//
-// Future:
-// localStorage can later be replaced by:
-//
-// Backend API
-//     ↓
-// Database
-//
-// Customer, Staff and Admin pages will continue using
-// the same useMenu() interface.
+// Preserves:
+// - Existing menu and localStorage data
+// - Menu migration
+// - Legacy flat customizations
+// - Add, update, delete and availability functions
+// - Grouped add-ons with single/multiple selection
 //
 // ============================================================
 
@@ -39,6 +28,8 @@ import type {
   FoodType,
   MenuCategory,
   MenuCustomization,
+  MenuCustomizationGroup,
+  MenuCustomizationOption,
   MenuItem,
 } from "../types/Menu";
 
@@ -51,29 +42,11 @@ const MENU_STORAGE_KEY = "smart-cafe-menu";
 const MENU_VERSION_STORAGE_KEY =
   "smart-cafe-menu-version";
 
-// ============================================================
-// MENU DATA VERSION
-// ============================================================
-//
-// Version 3 introduced:
-//
-// - Optional foodType
-// - Category-aware food type handling
-// - Safer menu normalization
-//
-// ============================================================
-
-const MENU_DATA_VERSION = 3;
+// Version 4 introduces grouped add-ons.
+const MENU_DATA_VERSION = 4;
 
 // ============================================================
 // ADMIN MENU INPUT
-// ============================================================
-//
-// ID is intentionally excluded.
-//
-// The MenuContext generates the ID so that Admin pages
-// cannot accidentally create duplicate or invalid IDs.
-//
 // ============================================================
 
 export type CreateMenuItemInput = Omit<
@@ -86,15 +59,7 @@ export type CreateMenuItemInput = Omit<
 // ============================================================
 
 interface MenuContextValue {
-  // ----------------------------------------------------------
-  // Complete menu
-  // ----------------------------------------------------------
-
   menuItems: MenuItem[];
-
-  // ----------------------------------------------------------
-  // Customer / General helpers
-  // ----------------------------------------------------------
 
   getItemsByCategory: (
     category: MenuCategory,
@@ -103,10 +68,6 @@ interface MenuContextValue {
   getItemById: (
     id: string,
   ) => MenuItem | undefined;
-
-  // ----------------------------------------------------------
-  // Admin management
-  // ----------------------------------------------------------
 
   addMenuItem: (
     item: CreateMenuItemInput,
@@ -117,9 +78,7 @@ interface MenuContextValue {
     updates: Partial<MenuItem>,
   ) => void;
 
-  deleteMenuItem: (
-    id: string,
-  ) => void;
+  deleteMenuItem: (id: string) => void;
 
   toggleMenuItemAvailability: (
     id: string,
@@ -135,22 +94,23 @@ const MenuContext =
     undefined,
   );
 
-// ============================================================
-// PROVIDER PROPS
-// ============================================================
-
 interface MenuProviderProps {
   children: ReactNode;
 }
 
 // ============================================================
-// CATEGORY CHECK
+// BASIC VALIDATION HELPERS
 // ============================================================
-//
-// This protects the application from invalid category values
-// coming from localStorage or future API data.
-//
-// ============================================================
+
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
 
 function isValidCategory(
   category: unknown,
@@ -164,10 +124,6 @@ function isValidCategory(
   );
 }
 
-// ============================================================
-// FOOD TYPE CHECK
-// ============================================================
-
 function isValidFoodType(
   foodType: unknown,
 ): foodType is FoodType {
@@ -176,17 +132,6 @@ function isValidFoodType(
     foodType === "non-veg"
   );
 }
-
-// ============================================================
-// ID GENERATOR
-// ============================================================
-//
-// crypto.randomUUID() gives us a strong unique ID in modern
-// browsers.
-//
-// A fallback is included for older environments.
-//
-// ============================================================
 
 function generateMenuItemId(): string {
   if (
@@ -201,29 +146,26 @@ function generateMenuItemId(): string {
     .slice(2, 10)}`;
 }
 
-// ============================================================
-// CUSTOMIZATION ID GENERATOR
-// ============================================================
-
 function generateCustomizationId(): string {
   return `custom-${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 10)}`;
 }
 
+function generateGroupId(): string {
+  return `group-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+function generateOptionId(): string {
+  return `option-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
 // ============================================================
-// CUSTOMIZATION NORMALIZATION
-// ============================================================
-//
-// Customizations are cleaned before being stored.
-//
-// Example:
-//
-// "Extra Cheese" → "Extra Cheese"
-// -10 price     → 0
-//
-// Empty customization names are removed later.
-//
+// LEGACY CUSTOMIZATION NORMALIZATION
 // ============================================================
 
 function normalizeCustomization(
@@ -249,63 +191,262 @@ function normalizeCustomization(
   return {
     id,
     name,
-    ...(price !== undefined
-      ? { price }
+    ...(price !== undefined ? { price } : {}),
+  };
+}
+
+// ============================================================
+// ADD-ON OPTION NORMALIZATION
+// ============================================================
+
+function normalizeCustomizationOption(
+  rawOption: unknown,
+): MenuCustomizationOption | null {
+  if (!isRecord(rawOption)) {
+    return null;
+  }
+
+  const name =
+    typeof rawOption.name === "string"
+      ? rawOption.name.trim()
+      : "";
+
+  if (!name) {
+    return null;
+  }
+
+  const id =
+    typeof rawOption.id === "string" &&
+    rawOption.id.trim()
+      ? rawOption.id.trim()
+      : generateOptionId();
+
+  const rawPrice = Number(rawOption.price);
+
+  const price =
+    Number.isFinite(rawPrice)
+      ? Math.max(0, rawPrice)
+      : 0;
+
+  return {
+    id,
+    name,
+    price,
+    ...(typeof rawOption.isAvailable === "boolean"
+      ? { isAvailable: rawOption.isAvailable }
       : {}),
   };
 }
 
 // ============================================================
-// MENU ITEM NORMALIZATION
+// ADD-ON GROUP NORMALIZATION
 // ============================================================
-//
-// This function protects menu data before it enters
-// application state or localStorage.
-//
-// Business rules:
-//
-// Food:
-//   Veg / Non-Veg allowed
-//
-// Snacks:
-//   Veg / Non-Veg allowed
-//
-// Drinks:
-//   foodType removed
-//
-// Desserts:
-//   foodType removed
-//
-// Specials:
-//   foodType optional
-//
+
+function normalizeCustomizationGroup(
+  rawGroup: unknown,
+): MenuCustomizationGroup | null {
+  if (!isRecord(rawGroup)) {
+    return null;
+  }
+
+  const name =
+    typeof rawGroup.name === "string"
+      ? rawGroup.name.trim()
+      : "";
+
+  if (!name) {
+    return null;
+  }
+
+  const id =
+    typeof rawGroup.id === "string" &&
+    rawGroup.id.trim()
+      ? rawGroup.id.trim()
+      : generateGroupId();
+
+  const selectionType =
+    rawGroup.selectionType === "multiple"
+      ? "multiple"
+      : "single";
+
+  const required =
+    typeof rawGroup.required === "boolean"
+      ? rawGroup.required
+      : false;
+
+  const rawOptions = Array.isArray(rawGroup.options)
+    ? rawGroup.options
+    : [];
+
+  const options = rawOptions
+    .map(normalizeCustomizationOption)
+    .filter(
+      (
+        option,
+      ): option is MenuCustomizationOption =>
+        option !== null,
+    );
+
+  const rawMin = rawGroup.minSelections;
+  const rawMax = rawGroup.maxSelections;
+
+  const minSelections =
+    typeof rawMin === "number" &&
+    Number.isInteger(rawMin) &&
+    rawMin >= 0
+      ? rawMin
+      : undefined;
+
+  const maxSelections =
+    typeof rawMax === "number" &&
+    Number.isInteger(rawMax) &&
+    rawMax >= 0
+      ? rawMax
+      : undefined;
+
+  return {
+    id,
+    name,
+    selectionType,
+    required,
+    ...(minSelections !== undefined
+      ? { minSelections }
+      : {}),
+    ...(maxSelections !== undefined
+      ? { maxSelections }
+      : {}),
+    options,
+  };
+}
+
+// ============================================================
+// ADD-ON GROUP VALIDATION
+// ============================================================
+
+function validateCustomizationGroup(
+  group: MenuCustomizationGroup,
+): string {
+  if (!group.id.trim()) {
+    return "Add-on group ID is required.";
+  }
+
+  if (!group.name.trim()) {
+    return "Add-on group name is required.";
+  }
+
+  if (
+    group.selectionType !== "single" &&
+    group.selectionType !== "multiple"
+  ) {
+    return `Selection type is invalid in "${group.name}".`;
+  }
+
+  if (typeof group.required !== "boolean") {
+    return `Required setting is invalid in "${group.name}".`;
+  }
+
+  if (!Array.isArray(group.options) || group.options.length === 0) {
+    return `Add-on group "${group.name}" must have at least one option.`;
+  }
+
+  const optionIds = new Set<string>();
+
+  for (const option of group.options) {
+    if (!option.id.trim()) {
+      return `An option in "${group.name}" has no ID.`;
+    }
+
+    if (optionIds.has(option.id)) {
+      return `Duplicate option ID in "${group.name}".`;
+    }
+
+    optionIds.add(option.id);
+
+    if (!option.name.trim()) {
+      return `An option in "${group.name}" needs a name.`;
+    }
+
+    if (
+      !Number.isFinite(option.price) ||
+      option.price < 0
+    ) {
+      return `Option prices in "${group.name}" must be zero or greater.`;
+    }
+
+    if (
+      option.isAvailable !== undefined &&
+      typeof option.isAvailable !== "boolean"
+    ) {
+      return `Option availability is invalid in "${group.name}".`;
+    }
+  }
+
+  const minSelections =
+    group.minSelections ??
+    (group.required ? 1 : 0);
+
+  const maxSelections =
+    group.maxSelections ??
+    (group.selectionType === "single"
+      ? 1
+      : group.options.length);
+
+  if (
+    group.minSelections !== undefined &&
+    (!Number.isInteger(group.minSelections) ||
+      group.minSelections < 0)
+  ) {
+    return `Minimum selections in "${group.name}" must be a non-negative whole number.`;
+  }
+
+  if (
+    group.maxSelections !== undefined &&
+    (!Number.isInteger(group.maxSelections) ||
+      group.maxSelections < 0)
+  ) {
+    return `Maximum selections in "${group.name}" must be a non-negative whole number.`;
+  }
+
+  if (group.required && minSelections < 1) {
+    return `Required group "${group.name}" must require at least one selection.`;
+  }
+
+  if (minSelections > maxSelections) {
+    return `Minimum selections cannot exceed maximum selections in "${group.name}".`;
+  }
+
+  if (maxSelections > group.options.length) {
+    return `Maximum selections exceed the available options in "${group.name}".`;
+  }
+
+  if (
+    group.selectionType === "single" &&
+    (minSelections > 1 || maxSelections > 1)
+  ) {
+    return `Single-selection group "${group.name}" can allow at most one selection.`;
+  }
+
+  return "";
+}
+
+// ============================================================
+// MENU ITEM NORMALIZATION
 // ============================================================
 
 function normalizeMenuItem(
   item: MenuItem,
 ): MenuItem {
-  const category = isValidCategory(
-    item.category,
-  )
+  const category = isValidCategory(item.category)
     ? item.category
     : "food";
 
   const normalized: MenuItem = {
     ...item,
 
-    // --------------------------------------------------------
-    // ID
-    // --------------------------------------------------------
-
     id:
-      typeof item.id === "string" &&
-      item.id.trim()
+      typeof item.id === "string" && item.id.trim()
         ? item.id.trim()
         : generateMenuItemId(),
-
-    // --------------------------------------------------------
-    // Basic text
-    // --------------------------------------------------------
 
     name:
       typeof item.name === "string"
@@ -314,77 +455,35 @@ function normalizeMenuItem(
 
     category,
 
-    // --------------------------------------------------------
-    // Price
-    // --------------------------------------------------------
-
     price:
       typeof item.price === "number" &&
       Number.isFinite(item.price)
         ? Math.max(0, item.price)
         : 0,
 
-    // --------------------------------------------------------
-    // Availability
-    // --------------------------------------------------------
-
     isAvailable:
       typeof item.isAvailable === "boolean"
         ? item.isAvailable
         : true,
 
-    // --------------------------------------------------------
-    // Optional description
-    // --------------------------------------------------------
-
     ...(typeof item.description === "string"
-      ? {
-          description:
-            item.description.trim(),
-        }
+      ? { description: item.description.trim() }
       : {}),
-
-    // --------------------------------------------------------
-    // Optional details
-    // --------------------------------------------------------
 
     ...(typeof item.details === "string"
-      ? {
-          details: item.details.trim(),
-        }
+      ? { details: item.details.trim() }
       : {}),
 
-    // --------------------------------------------------------
-    // Original price
-    // --------------------------------------------------------
-
-    ...(typeof item.originalPrice ===
-      "number" &&
+    ...(typeof item.originalPrice === "number" &&
     Number.isFinite(item.originalPrice)
-      ? {
-          originalPrice: Math.max(
-            0,
-            item.originalPrice,
-          ),
-        }
+      ? { originalPrice: Math.max(0, item.originalPrice) }
       : {}),
-
-    // --------------------------------------------------------
-    // Image
-    // --------------------------------------------------------
 
     ...(typeof item.image === "string"
-      ? {
-          image: item.image.trim(),
-        }
+      ? { image: item.image.trim() }
       : {}),
 
-    // --------------------------------------------------------
-    // Preparation time
-    // --------------------------------------------------------
-
-    ...(typeof item.preparationTime ===
-      "number" &&
+    ...(typeof item.preparationTime === "number" &&
     Number.isFinite(item.preparationTime)
       ? {
           preparationTime: Math.max(
@@ -394,29 +493,13 @@ function normalizeMenuItem(
         }
       : {}),
 
-    // --------------------------------------------------------
-    // Tags
-    // --------------------------------------------------------
-    //
-    // Duplicate tags are removed.
-    //
-    // Example:
-    // ["Spicy", "spicy", " Bestseller "]
-    //
-    // becomes:
-    // ["Spicy", "Bestseller"]
-    //
-    // --------------------------------------------------------
-
     ...(Array.isArray(item.tags)
       ? {
           tags: Array.from(
             new Map(
               item.tags
                 .filter(
-                  (
-                    tag,
-                  ): tag is string =>
+                  (tag): tag is string =>
                     typeof tag === "string",
                 )
                 .map((tag) => tag.trim())
@@ -430,60 +513,46 @@ function normalizeMenuItem(
         }
       : {}),
 
-    // --------------------------------------------------------
-    // Customizations
-    // --------------------------------------------------------
-
-    ...(Array.isArray(
-      item.customizations,
-    )
+    ...(Array.isArray(item.customizations)
       ? {
-          customizations:
-            item.customizations
-              .filter(
-                (
-                  customization,
-                ): customization is MenuCustomization =>
-                  Boolean(
-                    customization,
-                  ) &&
-                  typeof customization ===
-                    "object",
-              )
-              .map(
-                normalizeCustomization,
-              )
-              .filter(
-                (customization) =>
-                  customization.name
-                    .length > 0,
-              ),
+          customizations: item.customizations
+            .filter(
+              (
+                customization,
+              ): customization is MenuCustomization =>
+                isRecord(customization),
+            )
+            .map(normalizeCustomization)
+            .filter(
+              (customization) =>
+                customization.name.length > 0,
+            ),
+        }
+      : {}),
+
+    ...(Array.isArray(item.customizationGroups)
+      ? {
+          customizationGroups: item.customizationGroups
+            .map(normalizeCustomizationGroup)
+            .filter(
+              (
+                group,
+              ): group is MenuCustomizationGroup =>
+                group !== null,
+            ),
         }
       : {}),
   };
 
-  // ==========================================================
-  // FOOD TYPE BUSINESS RULE
-  // ==========================================================
-
+  // Food type business rules.
   if (
     category === "drinks" ||
     category === "desserts"
   ) {
-    // Drinks and desserts do not use
-    // Veg / Non-Veg classification.
-
     delete normalized.foodType;
-  } else if (
-    isValidFoodType(item.foodType)
-  ) {
-    // Food, snacks and specials can use
-    // Veg / Non-Veg classification.
-
+  } else if (isValidFoodType(item.foodType)) {
     normalized.foodType = item.foodType;
   } else {
-    // Missing or invalid food type.
-
     delete normalized.foodType;
   }
 
@@ -491,120 +560,58 @@ function normalizeMenuItem(
 }
 
 // ============================================================
-// MENU VALIDATION
-// ============================================================
-//
-// This is the final safety check before menu data is saved.
-//
+// MENU ITEM VALIDATION
 // ============================================================
 
 function validateMenuItem(
   item: MenuItem,
 ): string {
-  // ----------------------------------------------------------
-  // ID
-  // ----------------------------------------------------------
-
   if (!item.id.trim()) {
     return "Menu item ID is required.";
   }
-
-  // ----------------------------------------------------------
-  // Name
-  // ----------------------------------------------------------
 
   if (!item.name.trim()) {
     return "Menu item name is required.";
   }
 
-  // ----------------------------------------------------------
-  // Category
-  // ----------------------------------------------------------
-
   if (!isValidCategory(item.category)) {
     return "Menu item category is invalid.";
   }
 
-  // ----------------------------------------------------------
-  // Selling price
-  // ----------------------------------------------------------
-
-  if (
-    !Number.isFinite(item.price) ||
-    item.price < 0
-  ) {
-    return (
-      "Menu item price must be zero or greater."
-    );
+  if (!Number.isFinite(item.price) || item.price < 0) {
+    return "Menu item price must be zero or greater.";
   }
-
-  // ----------------------------------------------------------
-  // Original price
-  // ----------------------------------------------------------
 
   if (
     item.originalPrice !== undefined &&
-    (!Number.isFinite(
-      item.originalPrice,
-    ) ||
+    (!Number.isFinite(item.originalPrice) ||
       item.originalPrice < 0)
   ) {
-    return (
-      "Original price must be zero or greater."
-    );
+    return "Original price must be zero or greater.";
   }
-
-  // ----------------------------------------------------------
-  // Original price should not be lower than
-  // the actual selling price.
-  // ----------------------------------------------------------
 
   if (
     item.originalPrice !== undefined &&
     item.originalPrice < item.price
   ) {
-    return (
-      "Original price cannot be lower than the selling price."
-    );
+    return "Original price cannot be lower than the selling price.";
   }
-
-  // ----------------------------------------------------------
-  // Preparation time
-  // ----------------------------------------------------------
 
   if (
     item.preparationTime !== undefined &&
-    (!Number.isFinite(
-      item.preparationTime,
-    ) ||
+    (!Number.isFinite(item.preparationTime) ||
       item.preparationTime < 0)
   ) {
-    return (
-      "Preparation time must be zero or greater."
-    );
+    return "Preparation time must be zero or greater.";
   }
-
-  // ----------------------------------------------------------
-  // Food type
-  // ----------------------------------------------------------
 
   if (
-    item.category === "drinks" ||
-    item.category === "desserts"
+    (item.category === "drinks" ||
+      item.category === "desserts") &&
+    item.foodType !== undefined
   ) {
-    // Drinks and desserts must not contain
-    // Veg / Non-Veg classification.
-
-    if (item.foodType !== undefined) {
-      return (
-        "Drinks and desserts cannot have a food type."
-      );
-    }
+    return "Drinks and desserts cannot have a food type.";
   }
-
-  // ----------------------------------------------------------
-  // If foodType exists, it must be valid.
-  // ----------------------------------------------------------
 
   if (
     item.foodType !== undefined &&
@@ -613,88 +620,108 @@ function validateMenuItem(
     return "Food type is invalid.";
   }
 
-  // ----------------------------------------------------------
-  // Customizations
-  // ----------------------------------------------------------
+  // Legacy flat customizations.
+  if (item.customizations !== undefined) {
+    if (!Array.isArray(item.customizations)) {
+      return "Customizations must be a list.";
+    }
 
-  if (
-    item.customizations !== undefined
-  ) {
-    for (const customization of
-      item.customizations) {
+    const customizationIds = new Set<string>();
+
+    for (const customization of item.customizations) {
       if (!customization.id.trim()) {
-        return (
-          "Customization ID is required."
-        );
+        return "Customization ID is required.";
       }
 
+      if (customizationIds.has(customization.id)) {
+        return "Duplicate customization ID.";
+      }
+
+      customizationIds.add(customization.id);
+
       if (!customization.name.trim()) {
-        return (
-          "Customization name is required."
-        );
+        return "Customization name is required.";
       }
 
       if (
         customization.price !== undefined &&
-        (!Number.isFinite(
-          customization.price,
-        ) ||
+        (!Number.isFinite(customization.price) ||
           customization.price < 0)
       ) {
-        return (
-          "Customization price must be zero or greater."
-        );
+        return "Customization price must be zero or greater.";
       }
     }
   }
 
-  // ----------------------------------------------------------
-  // Everything is valid.
-  // ----------------------------------------------------------
+  // New grouped add-ons.
+  if (item.customizationGroups !== undefined) {
+    if (!Array.isArray(item.customizationGroups)) {
+      return "Add-on groups must be a list.";
+    }
+
+    const groupIds = new Set<string>();
+
+    for (const group of item.customizationGroups) {
+      if (groupIds.has(group.id)) {
+        return "Duplicate add-on group ID.";
+      }
+
+      groupIds.add(group.id);
+
+      const groupError =
+        validateCustomizationGroup(group);
+
+      if (groupError) {
+        return groupError;
+      }
+    }
+  }
 
   return "";
 }
 
 // ============================================================
-// MIGRATE MENU ITEM
+// MIGRATION
 // ============================================================
+
+// Existing valid menu items are retained even if an old or
+// malformed grouped add-on needs to be removed.
 
 function migrateMenuItem(
   item: MenuItem,
 ): MenuItem {
-  // Normalize old and new items using the
-  // current business rules.
+  const normalized = normalizeMenuItem(item);
 
-  return normalizeMenuItem(item);
+  normalized.customizationGroups =
+    normalized.customizationGroups?.filter(
+      (group) =>
+        validateCustomizationGroup(group) === "",
+    );
+
+  if (!normalized.customizationGroups?.length) {
+    delete normalized.customizationGroups;
+  }
+
+  return normalized;
 }
-
-// ============================================================
-// MIGRATE COMPLETE MENU
-// ============================================================
 
 function migrateMenu(
-  menu: MenuItem[],
+  menu: unknown,
 ): MenuItem[] {
+  if (!Array.isArray(menu)) {
+    return [];
+  }
+
   return menu
-    .filter(
-      (item): item is MenuItem =>
-        Boolean(item) &&
-        typeof item === "object",
-    )
-    .map(migrateMenuItem)
-    .filter(
+    .filter(isRecord)
+    .map(
       (item) =>
-        validateMenuItem(item) === "",
+        migrateMenuItem(item as unknown as MenuItem),
+    )
+    .filter(
+      (item) => validateMenuItem(item) === "",
     );
 }
-
-// ============================================================
-// LOAD DEFAULT MENU
-// ============================================================
-//
-// Used whenever localStorage is missing or invalid.
-//
-// ============================================================
 
 function getDefaultMenu(): MenuItem[] {
   return migrateMenu(initialMenu);
@@ -707,29 +734,14 @@ function getDefaultMenu(): MenuItem[] {
 export function MenuProvider({
   children,
 }: MenuProviderProps) {
-  // ==========================================================
-  // LOAD MENU
-  // ==========================================================
-
   const [menuItems, setMenuItems] =
     useState<MenuItem[]>(() => {
       try {
-        // ----------------------------------------------------
-        // Read saved menu.
-        // ----------------------------------------------------
-
         const savedMenu =
-          localStorage.getItem(
-            MENU_STORAGE_KEY,
-          );
-
-        // ----------------------------------------------------
-        // No saved menu exists.
-        // ----------------------------------------------------
+          localStorage.getItem(MENU_STORAGE_KEY);
 
         if (!savedMenu) {
-          const defaultMenu =
-            getDefaultMenu();
+          const defaultMenu = getDefaultMenu();
 
           localStorage.setItem(
             MENU_STORAGE_KEY,
@@ -744,20 +756,10 @@ export function MenuProvider({
           return defaultMenu;
         }
 
-        // ----------------------------------------------------
-        // Parse saved JSON.
-        // ----------------------------------------------------
-
-        const parsedMenu =
-          JSON.parse(savedMenu);
-
-        // ----------------------------------------------------
-        // Saved data must be an array.
-        // ----------------------------------------------------
+        const parsedMenu: unknown = JSON.parse(savedMenu);
 
         if (!Array.isArray(parsedMenu)) {
-          const defaultMenu =
-            getDefaultMenu();
+          const defaultMenu = getDefaultMenu();
 
           localStorage.setItem(
             MENU_STORAGE_KEY,
@@ -771,10 +773,6 @@ export function MenuProvider({
 
           return defaultMenu;
         }
-
-        // ----------------------------------------------------
-        // Read saved version.
-        // ----------------------------------------------------
 
         const storedVersion =
           Number(
@@ -783,29 +781,13 @@ export function MenuProvider({
             ),
           ) || 1;
 
-        // ----------------------------------------------------
-        // Migration information.
-        // ----------------------------------------------------
-
-        if (
-          storedVersion <
-          MENU_DATA_VERSION
-        ) {
+        if (storedVersion < MENU_DATA_VERSION) {
           console.info(
             `Migrating Smart Cafe menu from version ${storedVersion} to version ${MENU_DATA_VERSION}.`,
           );
         }
 
-        // ----------------------------------------------------
-        // Normalize and validate saved menu.
-        // ----------------------------------------------------
-
-        const migratedMenu =
-          migrateMenu(parsedMenu);
-
-        // ----------------------------------------------------
-        // Save the cleaned menu back to storage.
-        // ----------------------------------------------------
+        const migratedMenu = migrateMenu(parsedMenu);
 
         localStorage.setItem(
           MENU_STORAGE_KEY,
@@ -819,11 +801,6 @@ export function MenuProvider({
 
         return migratedMenu;
       } catch (error) {
-        // ----------------------------------------------------
-        // If localStorage or JSON parsing fails,
-        // safely fall back to the default menu.
-        // ----------------------------------------------------
-
         console.error(
           "Failed to load saved menu:",
           error,
@@ -836,16 +813,8 @@ export function MenuProvider({
   // ==========================================================
   // SAVE MENU
   // ==========================================================
-  //
-  // All menu modifications should pass through this function.
-  //
-  // This keeps React state and localStorage synchronized.
-  //
-  // ==========================================================
 
-  const saveMenu = (
-    updatedMenu: MenuItem[],
-  ) => {
+  const saveMenu = (updatedMenu: MenuItem[]) => {
     setMenuItems(updatedMenu);
 
     try {
@@ -867,29 +836,18 @@ export function MenuProvider({
   };
 
   // ==========================================================
-  // GET ITEMS BY CATEGORY
+  // GET MENU ITEMS
   // ==========================================================
 
   const getItemsByCategory = (
     category: MenuCategory,
-  ): MenuItem[] => {
-    return menuItems.filter(
-      (item) =>
-        item.category === category,
-    );
-  };
-
-  // ==========================================================
-  // GET ITEM BY ID
-  // ==========================================================
+  ): MenuItem[] =>
+    menuItems.filter((item) => item.category === category);
 
   const getItemById = (
     id: string,
-  ): MenuItem | undefined => {
-    return menuItems.find(
-      (item) => item.id === id,
-    );
-  };
+  ): MenuItem | undefined =>
+    menuItems.find((item) => item.id === id);
 
   // ==========================================================
   // ADD MENU ITEM
@@ -898,38 +856,20 @@ export function MenuProvider({
   const addMenuItem = (
     item: CreateMenuItemInput,
   ): MenuItem => {
-    // --------------------------------------------------------
-    // Generate a new ID.
-    // --------------------------------------------------------
+    const newItem = normalizeMenuItem({
+      ...item,
+      id: generateMenuItemId(),
+    });
 
-    const newItem =
-      normalizeMenuItem({
-        ...item,
-        id: generateMenuItemId(),
-      });
-
-    // --------------------------------------------------------
-    // Validate before saving.
-    // --------------------------------------------------------
-
-    const validationError =
-      validateMenuItem(newItem);
+    const validationError = validateMenuItem(newItem);
 
     if (validationError) {
-      throw new Error(
-        validationError,
-      );
+      throw new Error(validationError);
     }
-
-    // --------------------------------------------------------
-    // Protect against an extremely unlikely duplicate ID.
-    // --------------------------------------------------------
 
     if (
       menuItems.some(
-        (existingItem) =>
-          existingItem.id ===
-          newItem.id,
+        (existingItem) => existingItem.id === newItem.id,
       )
     ) {
       throw new Error(
@@ -937,25 +877,7 @@ export function MenuProvider({
       );
     }
 
-    // --------------------------------------------------------
-    // Add item to the existing menu.
-    // --------------------------------------------------------
-
-    const updatedMenu = [
-      ...menuItems,
-      newItem,
-    ];
-
-    // --------------------------------------------------------
-    // Save state + localStorage.
-    // --------------------------------------------------------
-
-    saveMenu(updatedMenu);
-
-    // --------------------------------------------------------
-    // Return the newly created item.
-    // Useful for Admin pages after creation.
-    // --------------------------------------------------------
+    saveMenu([...menuItems, newItem]);
 
     return newItem;
   };
@@ -968,70 +890,28 @@ export function MenuProvider({
     id: string,
     updates: Partial<MenuItem>,
   ) => {
-    // --------------------------------------------------------
-    // Find existing item.
-    // --------------------------------------------------------
-
     const existingItem =
-      menuItems.find(
-        (item) => item.id === id,
-      );
-
-    // --------------------------------------------------------
-    // Stop if item does not exist.
-    // --------------------------------------------------------
+      menuItems.find((item) => item.id === id);
 
     if (!existingItem) {
-      throw new Error(
-        `Menu item "${id}" was not found.`,
-      );
+      throw new Error(`Menu item "${id}" was not found.`);
     }
 
-    // --------------------------------------------------------
-    // Merge old data with new data.
-    //
-    // ID is always protected.
-    //
-    // Even if an Admin page sends another ID,
-    // the original ID remains unchanged.
-    // --------------------------------------------------------
+    const updatedItem = normalizeMenuItem({
+      ...existingItem,
+      ...updates,
+      id: existingItem.id,
+    });
 
-    const updatedItem =
-      normalizeMenuItem({
-        ...existingItem,
-        ...updates,
-        id: existingItem.id,
-      });
-
-    // --------------------------------------------------------
-    // Validate updated item.
-    // --------------------------------------------------------
-
-    const validationError =
-      validateMenuItem(
-        updatedItem,
-      );
+    const validationError = validateMenuItem(updatedItem);
 
     if (validationError) {
-      throw new Error(
-        validationError,
-      );
+      throw new Error(validationError);
     }
 
-    // --------------------------------------------------------
-    // Replace only the matching item.
-    // --------------------------------------------------------
-
-    const updatedMenu =
-      menuItems.map((item) =>
-        item.id === id
-          ? updatedItem
-          : item,
-      );
-
-    // --------------------------------------------------------
-    // Save.
-    // --------------------------------------------------------
+    const updatedMenu = menuItems.map((item) =>
+      item.id === id ? updatedItem : item,
+    );
 
     saveMenu(updatedMenu);
   };
@@ -1040,121 +920,56 @@ export function MenuProvider({
   // DELETE MENU ITEM
   // ==========================================================
 
-  const deleteMenuItem = (
-    id: string,
-  ) => {
-    // --------------------------------------------------------
-    // Check whether the item exists.
-    // --------------------------------------------------------
-
-    const itemExists =
-      menuItems.some(
-        (item) => item.id === id,
-      );
-
-    // --------------------------------------------------------
-    // Nothing to delete.
-    // --------------------------------------------------------
-
-    if (!itemExists) {
+  const deleteMenuItem = (id: string) => {
+    if (!menuItems.some((item) => item.id === id)) {
       return;
     }
 
-    // --------------------------------------------------------
-    // Remove matching item.
-    // --------------------------------------------------------
-
-    const updatedMenu =
-      menuItems.filter(
-        (item) => item.id !== id,
-      );
-
-    // --------------------------------------------------------
-    // Save.
-    // --------------------------------------------------------
-
-    saveMenu(updatedMenu);
+    saveMenu(
+      menuItems.filter((item) => item.id !== id),
+    );
   };
 
   // ==========================================================
-  // TOGGLE MENU ITEM AVAILABILITY
-  // ==========================================================
-  //
-  // Example:
-  //
-  // Available → Disabled
-  // Disabled  → Available
-  //
-  // This allows staff/admin to temporarily hide an item
-  // without deleting it.
-  //
+  // TOGGLE AVAILABILITY
   // ==========================================================
 
-  const toggleMenuItemAvailability = (
-    id: string,
-  ) => {
+  const toggleMenuItemAvailability = (id: string) => {
     const existingItem =
-      menuItems.find(
-        (item) => item.id === id,
-      );
-
-    // --------------------------------------------------------
-    // Item not found.
-    // --------------------------------------------------------
+      menuItems.find((item) => item.id === id);
 
     if (!existingItem) {
       return;
     }
 
-    // --------------------------------------------------------
-    // Toggle availability.
-    // --------------------------------------------------------
-
-    const updatedMenu =
-      menuItems.map((item) => {
-        if (item.id !== id) {
-          return item;
-        }
-
-        return {
-          ...item,
-          isAvailable:
-            !item.isAvailable,
-        };
-      });
-
-    // --------------------------------------------------------
-    // Save.
-    // --------------------------------------------------------
-
-    saveMenu(updatedMenu);
+    saveMenu(
+      menuItems.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              isAvailable: !item.isAvailable,
+            }
+          : item,
+      ),
+    );
   };
 
   // ==========================================================
   // CONTEXT VALUE
   // ==========================================================
-  //
-  // useMemo prevents unnecessary recreation of the context
-  // object when menu data has not changed.
-  //
-  // ==========================================================
 
-  const value =
-    useMemo<MenuContextValue>(() => {
-      return {
-        menuItems,
-        getItemsByCategory,
-        getItemById,
-        addMenuItem,
-        updateMenuItem,
-        deleteMenuItem,
-        toggleMenuItemAvailability,
-      };
-    }, [menuItems]);
-
-  // ==========================================================
-  // PROVIDER
-  // ==========================================================
+  const value = useMemo<MenuContextValue>(
+    () => ({
+      menuItems,
+      getItemsByCategory,
+      getItemById,
+      addMenuItem,
+      updateMenuItem,
+      deleteMenuItem,
+      toggleMenuItemAvailability,
+    }),
+    [menuItems],
+  );
 
   return (
     <MenuContext.Provider value={value}>
@@ -1166,16 +981,9 @@ export function MenuProvider({
 // ============================================================
 // USE MENU HOOK
 // ============================================================
-//
-// Any Customer, Staff or Admin component can use:
-//
-// const { menuItems } = useMenu();
-//
-// ============================================================
 
 export function useMenu() {
-  const context =
-    useContext(MenuContext);
+  const context = useContext(MenuContext);
 
   if (!context) {
     throw new Error(

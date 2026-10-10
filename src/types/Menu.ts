@@ -1,22 +1,7 @@
-// ============================================================
-// SMART CAFE - MENU TYPES
-// ============================================================
-//
-// Central data model for Smart Cafe menu items.
-//
-// Used by:
-// - Customer Menu
-// - Product Details
-// - Cart
-// - Staff Kitchen
-// - Admin Menu
-// - Future Backend / Database
-//
-// ============================================================
 
-// ============================================================
-// MENU CATEGORY
-// ============================================================
+ // ============================================================
+ // SMART CAFE - MENU TYPES
+ // ============================================================
 
 export type MenuCategory =
   | "food"
@@ -25,35 +10,11 @@ export type MenuCategory =
   | "desserts"
   | "specials";
 
-// ============================================================
-// FOOD TYPE
-// ============================================================
-//
-// Food type is only used when it makes sense.
-//
-// Food:
-//   - veg
-//   - non-veg
-//
-// Snacks:
-//   - veg
-//   - non-veg
-//
-// Drinks:
-//   - no food type
-//
-// Desserts:
-//   - no food type
-//
-// Specials:
-//   - optional
-//
-// ============================================================
-
 export type FoodType = "veg" | "non-veg";
 
 // ============================================================
-// CUSTOMIZATION
+// EXISTING CUSTOMIZATION
+// Kept for backward compatibility.
 // ============================================================
 
 export interface MenuCustomization {
@@ -63,19 +24,49 @@ export interface MenuCustomization {
 }
 
 // ============================================================
+// ADVANCED ADD-ON OPTION
+// Example: Extra Cheese (+₹30)
+// ============================================================
+
+export interface MenuCustomizationOption {
+  id: string;
+  name: string;
+  price: number;
+  isAvailable?: boolean;
+}
+
+// ============================================================
+// ADVANCED ADD-ON GROUP
+//
+// Examples:
+// - Choose your size: Small / Medium / Large
+// - Extra toppings: Cheese / Olives / Jalapenos
+//
+// single   = customer selects one option
+// multiple = customer may select multiple options
+// required = customer must make a selection
+// ============================================================
+
+export interface MenuCustomizationGroup {
+  id: string;
+  name: string;
+
+  selectionType: "single" | "multiple";
+
+  required: boolean;
+
+  minSelections?: number;
+  maxSelections?: number;
+
+  options: MenuCustomizationOption[];
+}
+
+// ============================================================
 // MAIN MENU ITEM
 // ============================================================
 
 export interface MenuItem {
-  // ----------------------------------------------------------
-  // Unique item ID
-  // ----------------------------------------------------------
-
   id: string;
-
-  // ----------------------------------------------------------
-  // Display information
-  // ----------------------------------------------------------
 
   name: string;
 
@@ -85,55 +76,24 @@ export interface MenuItem {
 
   details?: string;
 
-  // ----------------------------------------------------------
-  // FOOD TYPE
-  // ----------------------------------------------------------
-  //
-  // Optional because Drinks and Desserts do not use it.
-  //
-  // Food and Snacks should normally have it.
-  //
-  // Specials may optionally have it.
-  //
-  // ----------------------------------------------------------
-
   foodType?: FoodType;
-
-  // ----------------------------------------------------------
-  // PRICE
-  // ----------------------------------------------------------
 
   price: number;
 
   originalPrice?: number;
 
-  // ----------------------------------------------------------
-  // IMAGE
-  // ----------------------------------------------------------
-
   image?: string;
 
-  // ----------------------------------------------------------
-  // CUSTOMIZATIONS
-  // ----------------------------------------------------------
-
+  // Existing flat customizations remain supported.
   customizations?: MenuCustomization[];
 
-  // ----------------------------------------------------------
-  // AVAILABILITY
-  // ----------------------------------------------------------
+  // New grouped add-on system.
+  // Optional so existing menu records remain compatible.
+  customizationGroups?: MenuCustomizationGroup[];
 
   isAvailable: boolean;
 
-  // ----------------------------------------------------------
-  // PREPARATION TIME
-  // ----------------------------------------------------------
-
   preparationTime?: number;
-
-  // ----------------------------------------------------------
-  // SEARCH / RECOMMENDATION TAGS
-  // ----------------------------------------------------------
 
   tags?: string[];
 }
