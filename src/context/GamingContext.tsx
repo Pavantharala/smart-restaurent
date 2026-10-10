@@ -23,13 +23,20 @@ import { useSettings } from "./SettingsContext";
 // =========================================================
 //
 // RESPONSIBILITIES
-// - Associate a gaming session with an order.
-// - Track start, expiry, and closing times.
-// - Apply admin-configured gaming settings.
-// - Preserve session history.
-// - Prevent rapid duplicate session creation.
+// - Manage gaming sessions linked to orders.
+// - Prevent duplicate active sessions for the same order.
+// - Track session start, closing and expiry times.
+// - Respect configured gaming duration.
+// - Preserve completed session history.
+// - Recover safely from invalid browser storage.
 //
-// Game rendering and game-specific logic belong elsewhere.
+// IMPORTANT
+// - Payment status does not control gaming.
+// - Kitchen status does not control gaming.
+// - OrderContext starts gaming only for eligible orders:
+//   dine-in and waiting-lounge.
+// - OrderContext handles cleanup when an order is
+//   completed or cancelled.
 //
 // =========================================================
 
@@ -79,9 +86,9 @@ interface GamingContextType {
 // CONTEXT CREATION
 // =========================================================
 
-const GamingContext = createContext<GamingContextType | undefined>(
-  undefined,
-);
+const GamingContext = createContext<
+  GamingContextType | undefined
+>(undefined);
 
 // =========================================================
 // HELPERS
@@ -91,8 +98,17 @@ function minutesToMilliseconds(minutes: number): number {
   return minutes * 60 * 1000;
 }
 
-// Validate data restored from localStorage.
-function isGamingSession(value: unknown): value is GamingSession {
+function isLiveSession(session: GamingSession): boolean {
+  return (
+    session.status === "active" ||
+    session.status === "closing"
+  );
+}
+
+// Validate saved data before trusting localStorage.
+function isGamingSession(
+  value: unknown,
+): value is GamingSession {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -103,36 +119,95 @@ function isGamingSession(value: unknown): value is GamingSession {
 
   const session = value as Record<string, unknown>;
 
-  const validDate = (date: unknown): boolean =>
+  const validDate = (date: unknown): date is string =>
     typeof date === "string" &&
     date.trim() !== "" &&
     Number.isFinite(new Date(date).getTime());
 
-  return (
-    typeof session.id === "string" &&
-    session.id.trim() !== "" &&
-    typeof session.orderId === "string" &&
-    session.orderId.trim() !== "" &&
-    (session.mode === "single-player" ||
-      session.mode === "multiplayer") &&
-    validDate(session.startedAt) &&
-    validDate(session.expiresAt) &&
-    validDate(session.closingStartsAt) &&
-    (session.status === "active" ||
-      session.status === "closing" ||
-      session.status === "expired" ||
-      session.status === "cancelled") &&
-    (session.customerId === undefined ||
-      typeof session.customerId === "string") &&
-    (session.gameId === undefined ||
-      typeof session.gameId === "string") &&
-    (session.playerCount === undefined ||
-      (typeof session.playerCount === "number" &&
-        Number.isInteger(session.playerCount) &&
-        session.playerCount >= 1)) &&
-    (session.endedAt === undefined ||
-      validDate(session.endedAt))
-  );
+  if (
+    typeof session.id !== "string" ||
+    session.id.trim() === "" ||
+    typeof session.orderId !== "string" ||
+    session.orderId.trim() === "" ||
+    (session.mode !== "single-player" &&
+      session.mode !== "multiplayer") ||
+    !validDate(session.startedAt) ||
+    !validDate(session.expiresAt) ||
+    !validDate(session.closingStartsAt) ||
+    (session.status !== "active" &&
+      session.status !== "closing" &&
+      session.status !== "expired" &&
+      session.status !== "cancelled") ||
+    (session.customerId !== undefined &&
+      typeof session.customerId !== "string") ||
+    (session.gameId !== undefined &&
+      typeof session.gameId !== "string") ||
+    (session.playerCount !== undefined &&
+      (typeof session.playerCount !== "number" ||
+        !Number.isInteger(session.playerCount) ||
+        session.playerCount < 1)) ||
+    (session.endedAt !== undefined &&
+      !validDate(session.endedAt))
+  ) {
+    return false;
+  }
+
+  const startedAt = new Date(
+    session.startedAt,
+  ).getTime();
+
+  const closingStartsAt = new Date(
+    session.closingStartsAt,
+  ).getTime();
+
+  const expiresAt = new Date(
+    session.expiresAt,
+  ).getTime();
+
+  // A session's timestamps must follow the correct order.
+  if (
+    startedAt > closingStartsAt ||
+    closingStartsAt > expiresAt
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+// Read saved sessions without crashing when storage is blocked.
+function loadGamingSessions(): GamingSession[] {
+  try {
+    const saved = localStorage.getItem(
+      GAMING_STORAGE_KEY,
+    );
+
+    if (!saved) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(saved);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const validSessions = parsed.filter(isGamingSession);
+
+    // Remove duplicate session IDs from corrupted saved data.
+    const seenIds = new Set<string>();
+
+    return validSessions.filter((session) => {
+      if (seenIds.has(session.id)) {
+        return false;
+      }
+
+      seenIds.add(session.id);
+      return true;
+    });
+  } catch {
+    return [];
+  }
 }
 
 // =========================================================
@@ -146,46 +221,14 @@ export function GamingProvider({
 }) {
   const { settings } = useSettings();
 
-  // =======================================================
-  // LOAD SAVED SESSIONS
-  // =======================================================
+  const [sessions, setSessions] =
+    useState<GamingSession[]>(loadGamingSessions);
 
-  const [sessions, setSessions] = useState<GamingSession[]>(() => {
-    try {
-      const savedSessions = localStorage.getItem(
-        GAMING_STORAGE_KEY,
-      );
-
-      if (!savedSessions) {
-        return [];
-      }
-
-      const parsedSessions: unknown = JSON.parse(savedSessions);
-
-      if (!Array.isArray(parsedSessions)) {
-        return [];
-      }
-
-      return parsedSessions.filter(isGamingSession);
-    } catch {
-      return [];
-    }
-  });
-
-  // =======================================================
-  // SYNCHRONOUS SESSION REFERENCE
-  // =======================================================
-  //
-  // React state updates are not immediately reflected in the
-  // current render. Keep a synchronous reference so consecutive
-  // calls can see sessions created by earlier calls.
-  //
-  // All session updates must use updateSessions().
-  //
-  // =======================================================
-
+  // Keep a synchronous reference so consecutive operations
+  // can see the latest sessions before React rerenders.
   const sessionsRef = useRef(sessions);
 
+  // All internal session changes go through this function.
   const updateSessions = useCallback(
     (
       updater: (
@@ -193,6 +236,10 @@ export function GamingProvider({
       ) => GamingSession[],
     ) => {
       const nextSessions = updater(sessionsRef.current);
+
+      if (nextSessions === sessionsRef.current) {
+        return;
+      }
 
       sessionsRef.current = nextSessions;
       setSessions(nextSessions);
@@ -211,9 +258,68 @@ export function GamingProvider({
         JSON.stringify(sessions),
       );
     } catch {
-      // Do not crash if browser storage is unavailable.
+      // Browser storage failures must not crash the app.
     }
   }, [sessions]);
+
+  // =======================================================
+  // SYNCHRONIZE OTHER TABS
+  // =======================================================
+  //
+  // This supports browser tabs on the same device.
+  // It is NOT real-time server or multi-device synchronization.
+  //
+  // =======================================================
+
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key !== GAMING_STORAGE_KEY) {
+        return;
+      }
+
+      if (event.newValue === null) {
+        sessionsRef.current = [];
+        setSessions([]);
+        return;
+      }
+
+      try {
+        const parsed: unknown = JSON.parse(
+          event.newValue,
+        );
+
+        if (!Array.isArray(parsed)) {
+          return;
+        }
+
+        const validSessions =
+          parsed.filter(isGamingSession);
+
+        const uniqueSessions: GamingSession[] = [];
+        const seenIds = new Set<string>();
+
+        for (const session of validSessions) {
+          if (seenIds.has(session.id)) {
+            continue;
+          }
+
+          seenIds.add(session.id);
+          uniqueSessions.push(session);
+        }
+
+        sessionsRef.current = uniqueSessions;
+        setSessions(uniqueSessions);
+      } catch {
+        // Ignore malformed data received from another tab.
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   // =======================================================
   // AUTOMATIC SESSION STATUS CHECK
@@ -221,61 +327,62 @@ export function GamingProvider({
   //
   // ACTIVE -> CLOSING -> EXPIRED
   //
-  // Expired and cancelled sessions remain in history.
+  // Use each session's stored closingStartsAt value.
+  // Changing settings later must not unexpectedly shift
+  // the countdown for an already-running session.
   //
   // =======================================================
 
   useEffect(() => {
     const interval = window.setInterval(() => {
+      const now = Date.now();
+
       updateSessions((currentSessions) => {
         let changed = false;
 
-        const updatedSessions = currentSessions.map((session) => {
-          if (
-            session.status === "expired" ||
-            session.status === "cancelled"
-          ) {
+        const updatedSessions = currentSessions.map(
+          (session) => {
+            if (!isLiveSession(session)) {
+              return session;
+            }
+
+            const expiresAt = new Date(
+              session.expiresAt,
+            ).getTime();
+
+            const closingStartsAt = new Date(
+              session.closingStartsAt,
+            ).getTime();
+
+            // Expiry takes priority over the closing state.
+            if (now >= expiresAt) {
+              changed = true;
+
+              return {
+                ...session,
+                status: "expired" as const,
+                endedAt:
+                  session.endedAt ??
+                  new Date(now).toISOString(),
+              };
+            }
+
+            // Start the closing period at its saved timestamp.
+            if (
+              now >= closingStartsAt &&
+              session.status === "active"
+            ) {
+              changed = true;
+
+              return {
+                ...session,
+                status: "closing" as const,
+              };
+            }
+
             return session;
-          }
-
-          const remainingMilliseconds =
-            new Date(session.expiresAt).getTime() -
-            Date.now();
-
-          if (remainingMilliseconds <= 0) {
-            changed = true;
-
-            return {
-              ...session,
-              status: "expired" as const,
-              endedAt:
-                session.endedAt ?? new Date().toISOString(),
-            };
-          }
-
-          const closingDuration = minutesToMilliseconds(
-            Math.max(
-              0,
-              Number(
-                settings.gamingClosingCountdownMinutes,
-              ) || 0,
-            ),
-          );
-
-          if (
-            remainingMilliseconds <= closingDuration &&
-            session.status === "active"
-          ) {
-            changed = true;
-
-            return {
-              ...session,
-              status: "closing" as const,
-            };
-          }
-
-          return session;
-        });
+          },
+        );
 
         return changed ? updatedSessions : currentSessions;
       });
@@ -284,109 +391,139 @@ export function GamingProvider({
     return () => {
       window.clearInterval(interval);
     };
-  }, [
-    settings.gamingClosingCountdownMinutes,
-    updateSessions,
-  ]);
+  }, [updateSessions]);
 
   // =======================================================
   // START GAMING SESSION
   // =======================================================
 
-  function startGamingSession(input: {
-    orderId: string;
-    customerId?: string;
-    mode: GamingMode;
-    gameId?: string;
-    playerCount?: number;
-  }): GamingSession {
-    const normalizedOrderId = input.orderId.trim();
+  const startGamingSession = useCallback(
+    (input: {
+      orderId: string;
+      customerId?: string;
+      mode: GamingMode;
+      gameId?: string;
+      playerCount?: number;
+    }): GamingSession => {
+      const normalizedOrderId = input.orderId.trim();
 
-    if (!normalizedOrderId) {
-      throw new Error(
-        "Gaming session cannot start without an order ID.",
+      if (!normalizedOrderId) {
+        throw new Error(
+          "Gaming session cannot start without an order ID.",
+        );
+      }
+
+      if (
+        input.mode !== "single-player" &&
+        input.mode !== "multiplayer"
+      ) {
+        throw new Error("Invalid gaming mode.");
+      }
+
+      if (
+        input.playerCount !== undefined &&
+        (!Number.isInteger(input.playerCount) ||
+          input.playerCount < 1)
+      ) {
+        throw new Error(
+          "Player count must be a positive integer.",
+        );
+      }
+
+      // Do not create a second live session for the same order.
+      const existingSession = sessionsRef.current.find(
+        (session) =>
+          session.orderId === normalizedOrderId &&
+          isLiveSession(session) &&
+          Date.now() <
+            new Date(session.expiresAt).getTime(),
       );
-    }
 
-    // Return an existing live session for this order.
-    const existingSession = sessionsRef.current.find(
-      (session) =>
-        session.orderId === normalizedOrderId &&
-        (session.status === "active" ||
-          session.status === "closing"),
-    );
+      if (existingSession) {
+        return existingSession;
+      }
 
-    if (existingSession) {
-      return existingSession;
-    }
+      const now = new Date();
 
-    const now = new Date();
+      const configuredDuration = Number(
+        settings.gamingDurationMinutes,
+      );
 
-    const configuredGamingDuration = Math.max(
-      5,
-      Number(settings.gamingDurationMinutes) || 60,
-    );
+      const gamingDurationMinutes = GAMING_TEST_MODE
+        ? TEST_GAMING_DURATION_MINUTES
+        : Math.max(
+            5,
+            Number.isFinite(configuredDuration) &&
+              configuredDuration > 0
+              ? configuredDuration
+              : 60,
+          );
 
-    const gamingDurationMinutes = GAMING_TEST_MODE
-      ? TEST_GAMING_DURATION_MINUTES
-      : configuredGamingDuration;
+      const configuredClosingMinutes = Number(
+        settings.gamingClosingCountdownMinutes,
+      );
 
-    const closingDurationMinutes = Math.min(
-      gamingDurationMinutes,
-      Math.max(
-        0,
-        Number(
-          settings.gamingClosingCountdownMinutes,
-        ) || 0,
-      ),
-    );
+      const closingDurationMinutes = Math.min(
+        gamingDurationMinutes,
+        Math.max(
+          0,
+          Number.isFinite(configuredClosingMinutes)
+            ? configuredClosingMinutes
+            : 5,
+        ),
+      );
 
-    const expiresAt = new Date(
-      now.getTime() +
-        minutesToMilliseconds(gamingDurationMinutes),
-    );
+      const expiresAt = new Date(
+        now.getTime() +
+          minutesToMilliseconds(gamingDurationMinutes),
+      );
 
-    const closingStartsAt = new Date(
-      expiresAt.getTime() -
-        minutesToMilliseconds(closingDurationMinutes),
-    );
+      const closingStartsAt = new Date(
+        expiresAt.getTime() -
+          minutesToMilliseconds(closingDurationMinutes),
+      );
 
-    const session: GamingSession = {
-      id: `GAME-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`,
-      orderId: normalizedOrderId,
-      customerId: input.customerId,
-      mode: input.mode,
-      startedAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      closingStartsAt: closingStartsAt.toISOString(),
-      status: "active",
-      gameId: input.gameId,
-      playerCount: input.playerCount,
-    };
+      const session: GamingSession = {
+        id: `GAME-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`,
+        orderId: normalizedOrderId,
+        customerId: input.customerId,
+        mode: input.mode,
+        startedAt: now.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        closingStartsAt: closingStartsAt.toISOString(),
+        status: "active",
+        gameId: input.gameId,
+        playerCount: input.playerCount,
+      };
 
-    // The reference is updated synchronously. A rapid second
-    // call for this order will find the session above.
-    updateSessions((currentSessions) => [
-      ...currentSessions,
-      session,
-    ]);
+      updateSessions((currentSessions) => [
+        ...currentSessions,
+        session,
+      ]);
 
-    return session;
-  }
+      return session;
+    },
+    [
+      settings.gamingDurationMinutes,
+      settings.gamingClosingCountdownMinutes,
+      updateSessions,
+    ],
+  );
 
   // =======================================================
   // GET SESSION BY ID
   // =======================================================
 
-  function getGamingSessionById(
-    sessionId: string,
-  ): GamingSession | undefined {
-    return sessions.find(
-      (session) => session.id === sessionId,
-    );
-  }
+  const getGamingSessionById = useCallback(
+    (sessionId: string): GamingSession | undefined => {
+      return sessionsRef.current.find(
+        (session) => session.id === sessionId,
+      );
+    },
+    [],
+  );
 
   // =======================================================
   // GET SESSION BY ORDER ID
@@ -399,159 +536,177 @@ export function GamingProvider({
   //
   // =======================================================
 
-  function getGamingSessionByOrderId(
-    orderId: string,
-  ): GamingSession | undefined {
-    const normalizedOrderId = orderId.trim();
+  const getGamingSessionByOrderId = useCallback(
+    (orderId: string): GamingSession | undefined => {
+      const normalizedOrderId = orderId.trim();
 
-    if (!normalizedOrderId) {
-      return undefined;
-    }
+      if (!normalizedOrderId) {
+        return undefined;
+      }
 
-    const orderSessions = sessions.filter(
-      (session) => session.orderId === normalizedOrderId,
-    );
+      const orderSessions = sessionsRef.current
+        .filter(
+          (session) =>
+            session.orderId === normalizedOrderId,
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.startedAt).getTime() -
+            new Date(a.startedAt).getTime(),
+        );
 
-    const activeSession = orderSessions.find(
-      (session) => session.status === "active",
-    );
+      const activeSession = orderSessions.find(
+        (session) => session.status === "active",
+      );
 
-    if (activeSession) {
-      return activeSession;
-    }
+      if (activeSession) {
+        return activeSession;
+      }
 
-    const closingSession = orderSessions.find(
-      (session) => session.status === "closing",
-    );
+      const closingSession = orderSessions.find(
+        (session) => session.status === "closing",
+      );
 
-    if (closingSession) {
-      return closingSession;
-    }
-
-    return orderSessions
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(b.startedAt).getTime() -
-          new Date(a.startedAt).getTime(),
-      )[0];
-  }
+      return closingSession ?? orderSessions[0];
+    },
+    [],
+  );
 
   // =======================================================
   // UPDATE SESSION STATUS
   // =======================================================
 
-  function updateGamingSessionStatus(
-    sessionId: string,
-    status: GamingSessionStatus,
-  ): void {
-    updateSessions((currentSessions) =>
-      currentSessions.map((session) => {
-        if (session.id !== sessionId) {
-          return session;
-        }
+  const updateGamingSessionStatus = useCallback(
+    (
+      sessionId: string,
+      status: GamingSessionStatus,
+    ): void => {
+      updateSessions((currentSessions) => {
+        let changed = false;
 
-        // Terminal statuses cannot be changed.
-        if (
-          session.status === "expired" ||
-          session.status === "cancelled"
-        ) {
-          return session;
-        }
+        const updatedSessions = currentSessions.map(
+          (session) => {
+            if (session.id !== sessionId) {
+              return session;
+            }
 
-        const validTransition =
-          (session.status === "active" &&
-            (status === "closing" ||
+            // Terminal statuses cannot be reopened.
+            if (!isLiveSession(session)) {
+              return session;
+            }
+
+            const validTransition =
+              (session.status === "active" &&
+                (status === "closing" ||
+                  status === "expired" ||
+                  status === "cancelled")) ||
+              (session.status === "closing" &&
+                (status === "expired" ||
+                  status === "cancelled"));
+
+            if (!validTransition) {
+              return session;
+            }
+
+            changed = true;
+
+            if (
               status === "expired" ||
-              status === "cancelled")) ||
-          (session.status === "closing" &&
-            (status === "expired" ||
-              status === "cancelled"));
+              status === "cancelled"
+            ) {
+              return {
+                ...session,
+                status,
+                endedAt: new Date().toISOString(),
+              };
+            }
 
-        if (!validTransition) {
-          return session;
-        }
+            return {
+              ...session,
+              status,
+            };
+          },
+        );
 
-        if (
-          status === "expired" ||
-          status === "cancelled"
-        ) {
-          return {
-            ...session,
-            status,
-            endedAt:
-              session.endedAt ?? new Date().toISOString(),
-          };
-        }
-
-        return {
-          ...session,
-          status,
-        };
-      }),
-    );
-  }
+        return changed ? updatedSessions : currentSessions;
+      });
+    },
+    [updateSessions],
+  );
 
   // =======================================================
   // END GAMING SESSION
   // =======================================================
   //
-  // Manual ending uses "expired" because GamingSessionStatus
-  // does not currently include a separate "ended" status.
+  // The existing GamingSessionStatus type does not contain
+  // an "ended" status. For compatibility, a manually ended
+  // session is marked "expired" and receives endedAt.
+  //
+  // This also preserves compatibility with OrderContext,
+  // which uses this function for terminal order cleanup.
   //
   // =======================================================
 
-  function endGamingSession(sessionId: string): void {
-    updateSessions((currentSessions) =>
-      currentSessions.map((session) => {
-        if (session.id !== sessionId) {
-          return session;
-        }
+  const endGamingSession = useCallback(
+    (sessionId: string): void => {
+      updateSessions((currentSessions) => {
+        let changed = false;
 
-        if (
-          session.status === "expired" ||
-          session.status === "cancelled"
-        ) {
-          return session;
-        }
+        const updatedSessions = currentSessions.map(
+          (session) => {
+            if (
+              session.id !== sessionId ||
+              !isLiveSession(session)
+            ) {
+              return session;
+            }
 
-        return {
-          ...session,
-          status: "expired" as const,
-          endedAt: new Date().toISOString(),
-        };
-      }),
-    );
-  }
+            changed = true;
+
+            return {
+              ...session,
+              status: "expired" as const,
+              endedAt: new Date().toISOString(),
+            };
+          },
+        );
+
+        return changed ? updatedSessions : currentSessions;
+      });
+    },
+    [updateSessions],
+  );
 
   // =======================================================
   // REMAINING SECONDS
   // =======================================================
 
-  function getRemainingSeconds(
-    session: GamingSession,
-  ): number {
-    const remainingMilliseconds =
-      new Date(session.expiresAt).getTime() -
-      Date.now();
+  const getRemainingSeconds = useCallback(
+    (session: GamingSession): number => {
+      const remainingMilliseconds =
+        new Date(session.expiresAt).getTime() -
+        Date.now();
 
-    return Math.max(
-      0,
-      Math.ceil(remainingMilliseconds / 1000),
-    );
-  }
+      return Math.max(
+        0,
+        Math.ceil(remainingMilliseconds / 1000),
+      );
+    },
+    [],
+  );
 
   // =======================================================
   // REMAINING MINUTES
   // =======================================================
 
-  function getRemainingMinutes(
-    session: GamingSession,
-  ): number {
-    return Math.ceil(
-      getRemainingSeconds(session) / 60,
-    );
-  }
+  const getRemainingMinutes = useCallback(
+    (session: GamingSession): number => {
+      return Math.ceil(
+        getRemainingSeconds(session) / 60,
+      );
+    },
+    [getRemainingSeconds],
+  );
 
   // =======================================================
   // CONTEXT VALUE
@@ -570,14 +725,15 @@ export function GamingProvider({
     }),
     [
       sessions,
-      settings.gamingDurationMinutes,
-      settings.gamingClosingCountdownMinutes,
+      startGamingSession,
+      getGamingSessionById,
+      getGamingSessionByOrderId,
+      updateGamingSessionStatus,
+      endGamingSession,
+      getRemainingSeconds,
+      getRemainingMinutes,
     ],
   );
-
-  // =======================================================
-  // PROVIDER
-  // =======================================================
 
   return (
     <GamingContext.Provider value={value}>
@@ -590,7 +746,7 @@ export function GamingProvider({
 // USE GAMING HOOK
 // =========================================================
 
-export function useGaming() {
+export function useGaming(): GamingContextType {
   const context = useContext(GamingContext);
 
   if (!context) {

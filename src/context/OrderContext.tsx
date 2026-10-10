@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useContext,
@@ -25,9 +24,11 @@ import { canChangeOrderStatus } from "../utils/orderStatus";
 // ============================================================
 
 const ORDERS_STORAGE_KEY = "smart-cafe-orders";
-const NEXT_ORDER_NUMBER_STORAGE_KEY = "smart-cafe-next-order-number";
+const NEXT_ORDER_NUMBER_STORAGE_KEY =
+  "smart-cafe-next-order-number";
 
-export const ORDER_LIFECYCLE_EVENT = "smart-cafe-order-lifecycle";
+export const ORDER_LIFECYCLE_EVENT =
+  "smart-cafe-order-lifecycle";
 
 const TAX_RATE = 0.05;
 
@@ -77,12 +78,16 @@ interface OrderContextType {
   createOrder: (input: CreateOrderInput) => Order | null;
   getOrderById: (orderId: string) => Order | undefined;
   getCustomerOrders: (customerId?: string) => Order[];
-  updateOrderStatus: (orderId: string, status: OrderStatus) => boolean;
+  updateOrderStatus: (
+    orderId: string,
+    status: OrderStatus,
+  ) => boolean;
   cancelOrder: (orderId: string) => boolean;
   confirmPayment: (orderId: string) => boolean;
 }
 
-const OrderContext = createContext<OrderContextType | undefined>(undefined);
+const OrderContext =
+  createContext<OrderContextType | undefined>(undefined);
 
 // ============================================================
 // LOAD AND SAVE ORDERS
@@ -97,29 +102,46 @@ function loadOrders(): Order[] {
     const parsed: unknown = JSON.parse(stored);
 
     if (!Array.isArray(parsed)) {
-      console.warn("Smart Cafe: Stored orders data is not an array.");
+      console.warn(
+        "Smart Cafe: Stored orders data is not an array.",
+      );
       return [];
     }
 
     return parsed as Order[];
   } catch (error) {
-    console.error("Smart Cafe: Failed to load orders:", error);
+    console.error(
+      "Smart Cafe: Failed to load orders:",
+      error,
+    );
     return [];
   }
 }
 
 function saveOrders(orders: Order[]): void {
   try {
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+    localStorage.setItem(
+      ORDERS_STORAGE_KEY,
+      JSON.stringify(orders),
+    );
   } catch (error) {
-    console.error("Smart Cafe: Failed to save orders:", error);
-    throw new Error("The order could not be saved. Please try again.");
+    console.error(
+      "Smart Cafe: Failed to save orders:",
+      error,
+    );
+
+    throw new Error(
+      "The order could not be saved. Please try again.",
+    );
   }
 }
 
 function getNextOrderNumber(): number {
   try {
-    const stored = localStorage.getItem(NEXT_ORDER_NUMBER_STORAGE_KEY);
+    const stored = localStorage.getItem(
+      NEXT_ORDER_NUMBER_STORAGE_KEY,
+    );
+
     const currentNumber = stored ? Number(stored) : 1000;
 
     const nextNumber = Number.isFinite(currentNumber)
@@ -133,7 +155,11 @@ function getNextOrderNumber(): number {
 
     return nextNumber;
   } catch (error) {
-    console.error("Smart Cafe: Failed to generate order number:", error);
+    console.error(
+      "Smart Cafe: Failed to generate order number:",
+      error,
+    );
+
     return Date.now();
   }
 }
@@ -148,11 +174,12 @@ function convertCartItemToOrderItem(
   const basePrice = Number(item.basePrice);
   const unitPrice = Number(item.unitPrice);
 
-  const customizations = item.customizations?.map((customization) => ({
-    id: customization.id,
-    name: customization.name,
-    price: Number(customization.price ?? 0),
-  })) ?? [];
+  const customizations =
+    item.customizations?.map((customization) => ({
+      id: customization.id,
+      name: customization.name,
+      price: Number(customization.price ?? 0),
+    })) ?? [];
 
   return {
     menuItemId: item.menuItemId,
@@ -170,7 +197,9 @@ function convertCartItemToOrderItem(
 // VALIDATE ORDER INPUT
 // ============================================================
 
-function validateOrderInput(input: CreateOrderInput): string | null {
+function validateOrderInput(
+  input: CreateOrderInput,
+): string | null {
   if (!input.customer) {
     return "Customer information is missing.";
   }
@@ -181,11 +210,14 @@ function validateOrderInput(input: CreateOrderInput): string | null {
 
   const customerName = input.customer.name.trim();
 
+  // Business rule:
+  // Takeaway requires a name.
+  // Dine-in and waiting-lounge do not require a name.
   if (
-    (input.type === "waiting-lounge" || input.type === "takeaway") &&
+    input.type === "takeaway" &&
     customerName.length === 0
   ) {
-    return "Customer name is required for this order type.";
+    return "Customer name is required for takeaway orders.";
   }
 
   if (!Array.isArray(input.items) || input.items.length === 0) {
@@ -193,7 +225,10 @@ function validateOrderInput(input: CreateOrderInput): string | null {
   }
 
   for (const item of input.items) {
-    if (!item.menuItemId || typeof item.menuItemId !== "string") {
+    if (
+      !item.menuItemId ||
+      typeof item.menuItemId !== "string"
+    ) {
       return "A cart item is missing its menu item ID.";
     }
 
@@ -202,16 +237,19 @@ function validateOrderInput(input: CreateOrderInput): string | null {
     }
 
     const basePrice = Number(item.basePrice);
+
     if (!Number.isFinite(basePrice) || basePrice < 0) {
       return `Invalid base price for "${item.name}".`;
     }
 
     const unitPrice = Number(item.unitPrice);
+
     if (!Number.isFinite(unitPrice) || unitPrice < 0) {
       return `Invalid price for "${item.name}".`;
     }
 
     const quantity = Number(item.quantity);
+
     if (!Number.isInteger(quantity) || quantity <= 0) {
       return `Invalid quantity for "${item.name}".`;
     }
@@ -226,7 +264,9 @@ function validateOrderInput(input: CreateOrderInput): string | null {
           return `Invalid customization for "${item.name}".`;
         }
 
-        const customizationPrice = Number(customization.price ?? 0);
+        const customizationPrice = Number(
+          customization.price ?? 0,
+        );
 
         if (
           !Number.isFinite(customizationPrice) ||
@@ -269,7 +309,11 @@ function validateOrderInput(input: CreateOrderInput): string | null {
 // ORDER PROVIDER
 // ============================================================
 
-export function OrderProvider({ children }: { children: ReactNode }) {
+export function OrderProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const {
     tables,
     setTableOrder,
@@ -286,24 +330,26 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     updateGamingSessionStatus,
   } = useGaming();
 
-  const [orders, setOrders] = useState<Order[]>(() => loadOrders());
+  const [orders, setOrders] = useState<Order[]>(loadOrders);
 
   // ==========================================================
   // CREATE ORDER
   // ==========================================================
 
-  function createOrder(input: CreateOrderInput): Order | null {
+  function createOrder(
+    input: CreateOrderInput,
+  ): Order | null {
     const validationError = validateOrderInput(input);
 
     if (validationError) {
       throw new Error(validationError);
     }
 
-    // --------------------------------------------------------
-    // VALIDATE DINE-IN TABLE AND EXISTING OWNERSHIP
-    // --------------------------------------------------------
-
     let staleOrderId: string | undefined;
+
+    // --------------------------------------------------------
+    // VALIDATE DINE-IN TABLE OWNERSHIP
+    // --------------------------------------------------------
 
     if (input.type === "dine-in") {
       const selectedTable = tables.find(
@@ -332,13 +378,13 @@ export function OrderProvider({ children }: { children: ReactNode }) {
           );
         }
 
+        // Remember a stale link for cleanup by TableContext.
+        // It does not grant permission to use an unavailable table.
         staleOrderId = selectedTable.orderId;
       }
 
-      if (
-        selectedTable.status !== "available" &&
-        selectedTable.orderId !== staleOrderId
-      ) {
+      // Strict rule: only available tables can receive new orders.
+      if (selectedTable.status !== "available") {
         throw new Error(
           `Table ${selectedTable.number} is no longer available. Please select another table.`,
         );
@@ -346,7 +392,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     }
 
     // --------------------------------------------------------
-    // ORDER ITEMS AND TOTALS
+    // CREATE ORDER AND CALCULATE TOTALS
     // --------------------------------------------------------
 
     const orderNumber = getNextOrderNumber();
@@ -358,32 +404,31 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     );
 
     const subtotal = orderItems.reduce(
-      (total, item) => total + item.unitPrice * item.quantity,
+      (total, item) =>
+        total + item.unitPrice * item.quantity,
       0,
     );
 
     const taxAmount = subtotal * TAX_RATE;
     const totalAmount = subtotal + taxAmount;
 
-    // --------------------------------------------------------
-    // PAYMENT IS SEPARATE FROM KITCHEN WORKFLOW
-    // --------------------------------------------------------
-
+    // Payment is separate from kitchen preparation.
     const paymentStatus =
       input.paymentMethod === "counter" ? "pending" : "paid";
 
+    // Existing business rule:
+    // Only unpaid takeaway orders wait for payment confirmation.
     const orderStatus: OrderStatus =
-      input.type === "takeaway" && paymentStatus === "pending"
+      input.type === "takeaway" &&
+      paymentStatus === "pending"
         ? "payment-pending"
         : "confirmed";
-
-    const normalizedCustomerName = input.customer.name.trim();
 
     const newOrder: Order = {
       id: orderId,
       customerId: input.customerId,
       customer: {
-        name: normalizedCustomerName,
+        name: input.customer.name.trim(),
         phone: input.customer.phone,
         email: input.customer.email,
       },
@@ -406,7 +451,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     };
 
     // --------------------------------------------------------
-    // ASSIGN DINE-IN TABLE
+    // ASSIGN TABLE BEFORE SAVING ORDER
     // --------------------------------------------------------
 
     let tableAssigned = false;
@@ -420,13 +465,13 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
       if (!tableAssigned) {
         throw new Error(
-          "The selected table could not be reserved for this order. Please select another table.",
+          "The selected table could not be assigned to this order. Please select another table.",
         );
       }
     }
 
     // --------------------------------------------------------
-    // START GAMING FOR ELIGIBLE ORDERS
+    // START GAMING FOR ELIGIBLE ORDER TYPES
     // --------------------------------------------------------
 
     const gamingEligible =
@@ -445,7 +490,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error(
-          "Smart Cafe: Failed to start gaming session. Order will still be created.",
+          "Smart Cafe: Gaming session failed to start. Order creation will continue.",
           error,
         );
       }
@@ -461,17 +506,22 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       saveOrders(updatedOrders);
       setOrders(updatedOrders);
     } catch (error) {
+      // Undo the table assignment if saving the order fails.
       if (tableAssigned && input.tableId) {
         clearTableOrder(input.tableId, newOrder.id);
       }
 
+      // Cancel the gaming session if the order was not saved.
       if (newOrder.gamingSessionId) {
         const gamingSession = getGamingSessionById(
           newOrder.gamingSessionId,
         );
 
         if (gamingSession) {
-          updateGamingSessionStatus(gamingSession.id, "cancelled");
+          updateGamingSessionStatus(
+            gamingSession.id,
+            "cancelled",
+          );
         }
       }
 
@@ -484,14 +534,18 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   }
 
   // ==========================================================
-  // LOOKUP ORDERS
+  // ORDER LOOKUPS
   // ==========================================================
 
-  function getOrderById(orderId: string): Order | undefined {
+  function getOrderById(
+    orderId: string,
+  ): Order | undefined {
     return orders.find((order) => order.id === orderId);
   }
 
-  function getCustomerOrders(customerId?: string): Order[] {
+  function getCustomerOrders(
+    customerId?: string,
+  ): Order[] {
     if (!customerId) return orders;
 
     return orders.filter(
@@ -530,15 +584,18 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
     endGamingSession(gamingSession.id);
 
-    console.log("SMART CAFE - GAMING SESSION CLEANED UP:", {
-      orderId: order.id,
-      gamingSessionId: gamingSession.id,
-      orderStatus: order.status,
-    });
+    console.log(
+      "SMART CAFE - GAMING SESSION CLEANED UP:",
+      {
+        orderId: order.id,
+        gamingSessionId: gamingSession.id,
+        orderStatus: order.status,
+      },
+    );
   }
 
   // ==========================================================
-  // NOTIFY QUEUE ABOUT TERMINAL ORDER STATUS
+  // NOTIFY QUEUE OF ORDER LIFECYCLE CHANGES
   // ==========================================================
 
   function notifyOrderLifecycle(
@@ -569,11 +626,19 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     );
 
     if (!currentOrder) {
-      console.error("Smart Cafe: Order not found:", orderId);
+      console.error(
+        "Smart Cafe: Order not found:",
+        orderId,
+      );
       return false;
     }
 
-    if (!canChangeOrderStatus(currentOrder.status, nextStatus)) {
+    if (
+      !canChangeOrderStatus(
+        currentOrder.status,
+        nextStatus,
+      )
+    ) {
       console.error(
         `Smart Cafe: Invalid order status transition: ${currentOrder.status} → ${nextStatus}`,
       );
@@ -590,33 +655,66 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       order.id === orderId ? updatedOrder : order,
     );
 
+    // Persist the order status before running lifecycle side effects.
     saveOrders(updatedOrders);
     setOrders(updatedOrders);
 
-    if (nextStatus === "completed" || nextStatus === "cancelled") {
-      cleanupGamingForOrder(updatedOrder);
-      notifyOrderLifecycle(updatedOrder, nextStatus);
+    if (
+      nextStatus === "completed" ||
+      nextStatus === "cancelled"
+    ) {
+      // Isolate each operation. One failure should not prevent
+      // the remaining cleanup operations from being attempted.
+      try {
+        cleanupGamingForOrder(updatedOrder);
+      } catch (error) {
+        console.error(
+          "Smart Cafe: Gaming cleanup failed:",
+          error,
+        );
+      }
 
-      if (updatedOrder.type === "dine-in" && updatedOrder.tableId) {
-        const released =
-          nextStatus === "completed"
-            ? completeTableOrder(
-                updatedOrder.tableId,
-                updatedOrder.id,
-              )
-            : cancelTableOrder(
-                updatedOrder.tableId,
-                updatedOrder.id,
-              );
+      try {
+        notifyOrderLifecycle(updatedOrder, nextStatus);
+      } catch (error) {
+        console.error(
+          "Smart Cafe: Queue lifecycle notification failed:",
+          error,
+        );
+      }
 
-        if (!released) {
-          console.warn(
-            "Smart Cafe: Table was not released because this order no longer owns it.",
-            {
-              tableId: updatedOrder.tableId,
-              orderId: updatedOrder.id,
-              nextStatus,
-            },
+      // A dine-in table moves to cleaning only if this order
+      // still owns it. Staff releases it after cleaning.
+      if (
+        updatedOrder.type === "dine-in" &&
+        updatedOrder.tableId
+      ) {
+        try {
+          const transitioned =
+            nextStatus === "completed"
+              ? completeTableOrder(
+                  updatedOrder.tableId,
+                  updatedOrder.id,
+                )
+              : cancelTableOrder(
+                  updatedOrder.tableId,
+                  updatedOrder.id,
+                );
+
+          if (!transitioned) {
+            console.warn(
+              "Smart Cafe: Table was not moved to cleaning because this order no longer owns it.",
+              {
+                tableId: updatedOrder.tableId,
+                orderId: updatedOrder.id,
+                nextStatus,
+              },
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Smart Cafe: Table lifecycle cleanup failed:",
+            error,
           );
         }
       }
@@ -630,7 +728,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   // ==========================================================
 
   function cancelOrder(orderId: string): boolean {
-    const order = orders.find((item) => item.id === orderId);
+    const order = orders.find(
+      (item) => item.id === orderId,
+    );
 
     if (!order) return false;
 
@@ -654,7 +754,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     );
 
     if (!currentOrder) {
-      console.error("Smart Cafe: Order not found:", orderId);
+      console.error(
+        "Smart Cafe: Order not found:",
+        orderId,
+      );
       return false;
     }
 
@@ -662,13 +765,15 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    // Takeaway counter payment may move the order from
-    // payment-pending to confirmed. Other payment updates do
-    // not change the kitchen status.
+    // Counter payment for takeaway can move the order
+    // from payment-pending to confirmed.
     if (
       currentOrder.type === "takeaway" &&
       currentOrder.status === "payment-pending" &&
-      !canChangeOrderStatus(currentOrder.status, "confirmed")
+      !canChangeOrderStatus(
+        currentOrder.status,
+        "confirmed",
+      )
     ) {
       return false;
     }
@@ -719,6 +824,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
 // ============================================================
 // USE ORDER HOOK
+// Required by customer pages and staff pages.
 // ============================================================
 
 export function useOrder(): OrderContextType {

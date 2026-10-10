@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -27,7 +28,6 @@ const TABLE_SESSION_KEY = "smart-cafe-table-session";
 const TABLE_STATUS_KEY = "smart-cafe-table-status";
 const ORDERS_STORAGE_KEY = "smart-cafe-orders";
 
-// Orders that no longer own a physical table.
 const TERMINAL_ORDER_STATUSES = [
   "completed",
   "cancelled",
@@ -61,8 +61,6 @@ interface TableContextType {
     expectedOrderId?: string,
   ) => boolean;
 
-  // Cancellation clears only the order connection.
-  // It does not automatically make the physical table available.
   cancelTableOrder: (
     tableId: string,
     expectedOrderId: string,
@@ -73,7 +71,6 @@ interface TableContextType {
     expectedOrderId: string,
   ) => boolean;
 
-  // Explicit admin/staff release.
   releaseTable: (tableId: string) => boolean;
 
   getTableById: (
@@ -89,7 +86,7 @@ const TableContext =
   createContext<TableContextType | undefined>(undefined);
 
 // ============================================================
-// CHECK WHETHER AN ORDER IS TERMINAL
+// ORDER STATUS HELPERS
 // ============================================================
 
 function isTerminalOrderStatus(
@@ -101,19 +98,14 @@ function isTerminalOrderStatus(
   );
 }
 
-// ============================================================
-// CHECK WHETHER A STORED ORDER IS ACTIVE
-// ============================================================
-
 function isStoredOrderActive(orderId: string): boolean {
   try {
     const storedOrders = localStorage.getItem(
       ORDERS_STORAGE_KEY,
     );
 
+    // Preserve ownership if the order data is unavailable.
     if (!storedOrders) {
-      // If no order data can be found, do not assume
-      // that an existing table connection is safe to remove.
       return true;
     }
 
@@ -131,6 +123,7 @@ function isStoredOrderActive(orderId: string): boolean {
         item.id === orderId,
     );
 
+    // A missing order no longer owns a physical table.
     if (!order) {
       return false;
     }
@@ -150,8 +143,7 @@ function isStoredOrderActive(orderId: string): boolean {
       error,
     );
 
-    // Safety rule: preserve the connection when
-    // the order cannot be verified.
+    // Fail safely when ownership cannot be verified.
     return true;
   }
 }
@@ -167,7 +159,7 @@ function loadSavedTables(): CafeTable[] {
     );
 
     if (!savedTables) {
-      return initialTables;
+      return initialTables.map((table) => ({ ...table }));
     }
 
     const parsedTables: unknown = JSON.parse(savedTables);
@@ -177,7 +169,7 @@ function loadSavedTables(): CafeTable[] {
         "Smart Cafe: Saved table data is invalid. Using initial tables.",
       );
 
-      return initialTables;
+      return initialTables.map((table) => ({ ...table }));
     }
 
     return initialTables.map((initialTable) => {
@@ -200,13 +192,12 @@ function loadSavedTables(): CafeTable[] {
 
       const orderId = mergedTable.orderId;
 
-      // No order connection: keep the saved table status.
+      // No order owns this table.
       if (!orderId) {
         return mergedTable;
       }
 
-      // Active order: preserve ownership and ensure
-      // the table is occupied unless reserved or cleaning.
+      // Preserve the ownership of an active order.
       if (isStoredOrderActive(orderId)) {
         return {
           ...mergedTable,
@@ -218,7 +209,7 @@ function loadSavedTables(): CafeTable[] {
         };
       }
 
-      // Stale order: remove its ownership.
+      // Terminal or missing order: require cleaning.
       console.warn(
         "Smart Cafe: Removing stale table order connection:",
         {
@@ -231,10 +222,9 @@ function loadSavedTables(): CafeTable[] {
         ...mergedTable,
         orderId: undefined,
         status:
-          mergedTable.status === "reserved" ||
-          mergedTable.status === "cleaning"
-            ? mergedTable.status
-            : "available",
+          mergedTable.status === "reserved"
+            ? "reserved"
+            : "cleaning",
       };
     });
   } catch (error) {
@@ -243,7 +233,7 @@ function loadSavedTables(): CafeTable[] {
       error,
     );
 
-    return initialTables;
+    return initialTables.map((table) => ({ ...table }));
   }
 }
 
@@ -262,9 +252,25 @@ export function TableProvider({
   const [tables, setTables] =
     useState<CafeTable[]>(() => loadSavedTables());
 
-  // ----------------------------------------------------------
+  // Keep the latest table state available for synchronous
+  // ownership checks, without waiting for another render.
+  const tablesRef = useRef<CafeTable[]>(tables);
+
+  // All table mutations go through this helper.
+  const commitTables = (
+    updater: (currentTables: CafeTable[]) => CafeTable[],
+  ): CafeTable[] => {
+    const nextTables = updater(tablesRef.current);
+
+    tablesRef.current = nextTables;
+    setTables(nextTables);
+
+    return nextTables;
+  };
+
+  // ==========================================================
   // RESTORE CUSTOMER TABLE SESSION
-  // ----------------------------------------------------------
+  // ==========================================================
 
   useEffect(() => {
     try {
@@ -308,9 +314,9 @@ export function TableProvider({
     }
   }, [tables]);
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // KEEP SELECTED TABLE SYNCHRONIZED
-  // ----------------------------------------------------------
+  // ==========================================================
 
   useEffect(() => {
     if (!selectedTable) {
@@ -333,16 +339,23 @@ export function TableProvider({
     ) {
       setSelectedTable(liveTable);
 
-      localStorage.setItem(
-        TABLE_SESSION_KEY,
-        JSON.stringify(liveTable),
-      );
+      try {
+        localStorage.setItem(
+          TABLE_SESSION_KEY,
+          JSON.stringify(liveTable),
+        );
+      } catch (error) {
+        console.error(
+          "Smart Cafe: Failed to save selected table:",
+          error,
+        );
+      }
     }
   }, [tables, selectedTable]);
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // SAVE TABLE STATES
-  // ----------------------------------------------------------
+  // ==========================================================
 
   useEffect(() => {
     try {
@@ -358,10 +371,10 @@ export function TableProvider({
     }
   }, [tables]);
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // DETECT TABLE FROM QR URL
   // Example: /menu?table=QR-SMART-CAFE-T04
-  // ----------------------------------------------------------
+  // ==========================================================
 
   useEffect(() => {
     const params = new URLSearchParams(
@@ -393,10 +406,17 @@ export function TableProvider({
 
     setSelectedTable(liveTable);
 
-    localStorage.setItem(
-      TABLE_SESSION_KEY,
-      JSON.stringify(liveTable),
-    );
+    try {
+      localStorage.setItem(
+        TABLE_SESSION_KEY,
+        JSON.stringify(liveTable),
+      );
+    } catch (error) {
+      console.error(
+        "Smart Cafe: Failed to save QR table session:",
+        error,
+      );
+    }
   }, [tables]);
 
   // ==========================================================
@@ -413,7 +433,7 @@ export function TableProvider({
       return;
     }
 
-    const liveTable = tables.find(
+    const liveTable = tablesRef.current.find(
       (item) => item.id === table.id,
     );
 
@@ -423,10 +443,17 @@ export function TableProvider({
 
     setSelectedTable(liveTable);
 
-    localStorage.setItem(
-      TABLE_SESSION_KEY,
-      JSON.stringify(liveTable),
-    );
+    try {
+      localStorage.setItem(
+        TABLE_SESSION_KEY,
+        JSON.stringify(liveTable),
+      );
+    } catch (error) {
+      console.error(
+        "Smart Cafe: Failed to save table session:",
+        error,
+      );
+    }
   };
 
   // ==========================================================
@@ -443,7 +470,7 @@ export function TableProvider({
       return;
     }
 
-    const liveTable = tables.find(
+    const liveTable = tablesRef.current.find(
       (item) => item.id === table.id,
     );
 
@@ -453,15 +480,22 @@ export function TableProvider({
 
     setSelectedTable(liveTable);
 
-    localStorage.setItem(
-      TABLE_SESSION_KEY,
-      JSON.stringify(liveTable),
-    );
+    try {
+      localStorage.setItem(
+        TABLE_SESSION_KEY,
+        JSON.stringify(liveTable),
+      );
+    } catch (error) {
+      console.error(
+        "Smart Cafe: Failed to save table session:",
+        error,
+      );
+    }
   };
 
   // ==========================================================
   // CLEAR SELECTED CUSTOMER TABLE
-  // This does not release the physical table.
+  // Does not release the physical table.
   // ==========================================================
 
   const clearTable = () => {
@@ -477,20 +511,20 @@ export function TableProvider({
     tableId: string,
     requestedStatus: TableStatus,
   ) => {
-    setTables((currentTables) =>
+    commitTables((currentTables) =>
       currentTables.map((table) => {
         if (table.id !== tableId) {
           return table;
         }
 
-        // Do not make an order-owned table available
+        // An order-owned table cannot be made available
         // through an ordinary status update.
         if (
           table.orderId &&
           requestedStatus === "available"
         ) {
           console.warn(
-            "Smart Cafe: Table has an order. Use releaseTable() for an explicit release.",
+            "Smart Cafe: Table has an order. Use the explicit release workflow.",
             {
               tableId,
               orderId: table.orderId,
@@ -520,7 +554,11 @@ export function TableProvider({
     orderId: string,
     staleOrderId?: string,
   ): boolean => {
-    const currentTable = tables.find(
+    if (!orderId.trim()) {
+      return false;
+    }
+
+    const currentTable = tablesRef.current.find(
       (table) => table.id === tableId,
     );
 
@@ -537,11 +575,8 @@ export function TableProvider({
       return true;
     }
 
-    // Another order owns the table.
-    if (
-      currentTable.orderId &&
-      currentTable.orderId !== staleOrderId
-    ) {
+    // Never overwrite another order's ownership.
+    if (currentTable.orderId) {
       console.error(
         "Smart Cafe: Cannot assign table. Another order owns it.",
         {
@@ -550,48 +585,37 @@ export function TableProvider({
           requestedOrderId: orderId,
         },
       );
+
       return false;
     }
 
-    // Do not assign a table that is reserved,
-    // occupied without an eligible stale connection,
-    // or undergoing cleaning.
-    if (
-      currentTable.status !== "available" &&
-      currentTable.orderId !== staleOrderId
-    ) {
+    // A stale order ID is not permission to bypass
+    // the physical table's availability status.
+    if (currentTable.status !== "available") {
       console.error(
-        "Smart Cafe: Cannot assign table. Table is not available.",
+        "Smart Cafe: Cannot assign order. Table is not available.",
         {
           tableId,
           status: currentTable.status,
           orderId: currentTable.orderId,
+          staleOrderId,
         },
       );
+
       return false;
     }
 
-    setTables((currentTables) =>
+    commitTables((currentTables) =>
       currentTables.map((table) => {
         if (table.id !== tableId) {
           return table;
         }
 
-        // Recheck ownership against the latest state.
+        // Recheck the latest state before assigning.
         if (
-          table.orderId &&
-          table.orderId !== orderId &&
-          table.orderId !== staleOrderId
+          table.orderId ||
+          table.status !== "available"
         ) {
-          console.error(
-            "Smart Cafe: Final table assignment check failed.",
-            {
-              tableId,
-              existingOrderId: table.orderId,
-              requestedOrderId: orderId,
-            },
-          );
-
           return table;
         }
 
@@ -603,28 +627,37 @@ export function TableProvider({
       }),
     );
 
-    console.log(
-      "Smart Cafe: Table assigned successfully.",
-      {
-        tableId,
-        orderId,
-        replacedStaleOrderId: staleOrderId,
-      },
+    // Return success only if the assignment was committed.
+    const committedTable = tablesRef.current.find(
+      (table) => table.id === tableId,
     );
 
-    return true;
+    const assigned = committedTable?.orderId === orderId;
+
+    if (assigned) {
+      console.log(
+        "Smart Cafe: Table assigned successfully.",
+        {
+          tableId,
+          orderId,
+          staleOrderIdProvided: Boolean(staleOrderId),
+        },
+      );
+    }
+
+    return assigned;
   };
 
   // ==========================================================
   // CLEAR ORDER CONNECTION ONLY
-  // The physical table status remains unchanged.
+  // Used for rollback if order creation fails.
   // ==========================================================
 
   const clearTableOrder = (
     tableId: string,
     expectedOrderId?: string,
   ): boolean => {
-    const currentTable = tables.find(
+    const currentTable = tablesRef.current.find(
       (table) => table.id === tableId,
     );
 
@@ -636,28 +669,28 @@ export function TableProvider({
       return false;
     }
 
-    // Nothing to clear; allow repeated cleanup calls.
     if (!currentTable.orderId) {
       return true;
     }
 
-    // Ownership protection: do not clear a different order.
+    // Do not clear a different order's ownership.
     if (
       expectedOrderId &&
       currentTable.orderId !== expectedOrderId
     ) {
       console.warn(
-        "Smart Cafe: Table belongs to another order. Refusing to clear.",
+        "Smart Cafe: Refusing to clear another order's table.",
         {
           tableId,
           expectedOrderId,
           currentOrderId: currentTable.orderId,
         },
       );
+
       return false;
     }
 
-    setTables((currentTables) =>
+    commitTables((currentTables) =>
       currentTables.map((table) => {
         if (table.id !== tableId) {
           return table;
@@ -677,123 +710,131 @@ export function TableProvider({
       }),
     );
 
-    console.log(
-      "Smart Cafe: Table order connection cleared.",
-      {
-        tableId,
-        expectedOrderId,
-      },
-    );
-
-    return true;
+    return !tablesRef.current.find(
+      (table) => table.id === tableId,
+    )?.orderId;
   };
 
   // ==========================================================
-  // CANCEL TABLE ORDER CONNECTION
-  // Does not change physical table status.
+  // TERMINAL ORDER -> CLEANING
+  // Shared by cancellation and completion.
   // ==========================================================
 
-  const cancelTableOrder = (
+  const moveOwnedTableToCleaning = (
     tableId: string,
     expectedOrderId: string,
+    operation: "cancelled" | "completed",
   ): boolean => {
-    if (!expectedOrderId) {
-      console.warn(
-        "Smart Cafe: Cannot cancel a table connection without an order ID.",
-        { tableId },
-      );
+    if (!expectedOrderId.trim()) {
       return false;
     }
 
-    return clearTableOrder(
-      tableId,
-      expectedOrderId,
-    );
-  };
-
-  // ==========================================================
-  // COMPLETE DINE-IN ORDER AND RELEASE ITS TABLE
-  // Only the order that owns the table can release it.
-  // ==========================================================
-
-  const completeTableOrder = (
-    tableId: string,
-    expectedOrderId: string,
-  ): boolean => {
-    const currentTable = tables.find(
+    const currentTable = tablesRef.current.find(
       (table) => table.id === tableId,
     );
 
     if (!currentTable) {
       console.warn(
-        "Smart Cafe: Cannot complete table order. Table not found:",
-        tableId,
+        "Smart Cafe: Cannot move table to cleaning. Table not found.",
+        { tableId, expectedOrderId },
       );
+
       return false;
     }
 
-    if (!currentTable.orderId) {
-      console.warn(
-        "Smart Cafe: Table has no order ownership during completion.",
-        {
-          tableId,
-          expectedOrderId,
-        },
-      );
-      return false;
-    }
-
+    // Ownership must match before changing the table.
     if (currentTable.orderId !== expectedOrderId) {
       console.warn(
-        "Smart Cafe: Refusing to release table because ownership changed.",
+        "Smart Cafe: Refusing terminal table transition because ownership changed.",
         {
           tableId,
           expectedOrderId,
           currentOrderId: currentTable.orderId,
+          operation,
         },
       );
+
       return false;
     }
 
-    setTables((currentTables) =>
+    commitTables((currentTables) =>
       currentTables.map((table) => {
-        if (table.id !== tableId) {
-          return table;
-        }
-
-        // Final ownership protection.
-        if (table.orderId !== expectedOrderId) {
+        if (
+          table.id !== tableId ||
+          table.orderId !== expectedOrderId
+        ) {
           return table;
         }
 
         return {
           ...table,
           orderId: undefined,
-          status: "available",
+          status: "cleaning",
         };
       }),
     );
 
-    console.log(
-      "Smart Cafe: Completed dine-in order released its table.",
-      {
-        tableId,
-        orderId: expectedOrderId,
-      },
+    const updatedTable = tablesRef.current.find(
+      (table) => table.id === tableId,
     );
 
-    return true;
+    const transitioned =
+      updatedTable !== undefined &&
+      updatedTable.orderId === undefined &&
+      updatedTable.status === "cleaning";
+
+    if (transitioned) {
+      console.log(
+        `Smart Cafe: ${operation} order moved its table to cleaning.`,
+        {
+          tableId,
+          orderId: expectedOrderId,
+        },
+      );
+    }
+
+    return transitioned;
+  };
+
+  // ==========================================================
+  // CANCEL DINE-IN ORDER
+  // ==========================================================
+
+  const cancelTableOrder = (
+    tableId: string,
+    expectedOrderId: string,
+  ): boolean => {
+    return moveOwnedTableToCleaning(
+      tableId,
+      expectedOrderId,
+      "cancelled",
+    );
+  };
+
+  // ==========================================================
+  // COMPLETE DINE-IN ORDER
+  // ==========================================================
+
+  const completeTableOrder = (
+    tableId: string,
+    expectedOrderId: string,
+  ): boolean => {
+    return moveOwnedTableToCleaning(
+      tableId,
+      expectedOrderId,
+      "completed",
+    );
   };
 
   // ==========================================================
   // EXPLICIT ADMIN/STAFF RELEASE
-  // Clears ownership and makes the table available.
+  // Only after cleaning is complete.
   // ==========================================================
 
   const releaseTable = (
     tableId: string,
   ): boolean => {
-    const currentTable = tables.find(
+    const currentTable = tablesRef.current.find(
       (table) => table.id === tableId,
     );
 
@@ -802,12 +843,45 @@ export function TableProvider({
         "Smart Cafe: Cannot release table. Table not found:",
         tableId,
       );
+
       return false;
     }
 
-    setTables((currentTables) =>
+    if (currentTable.orderId) {
+      console.warn(
+        "Smart Cafe: Cannot release a table that still has an order.",
+        {
+          tableId,
+          orderId: currentTable.orderId,
+        },
+      );
+
+      return false;
+    }
+
+    if (currentTable.status !== "cleaning") {
+      console.warn(
+        "Smart Cafe: Only a table in cleaning can be released.",
+        {
+          tableId,
+          status: currentTable.status,
+        },
+      );
+
+      return false;
+    }
+
+    commitTables((currentTables) =>
       currentTables.map((table) => {
         if (table.id !== tableId) {
+          return table;
+        }
+
+        // Recheck before changing the latest state.
+        if (
+          table.orderId ||
+          table.status !== "cleaning"
+        ) {
           return table;
         }
 
@@ -819,15 +893,15 @@ export function TableProvider({
       }),
     );
 
-    console.log(
-      "Smart Cafe: Table explicitly released:",
-      {
-        tableId,
-        previousOrderId: currentTable.orderId,
-      },
+    const releasedTable = tablesRef.current.find(
+      (table) => table.id === tableId,
     );
 
-    return true;
+    return (
+      releasedTable !== undefined &&
+      !releasedTable.orderId &&
+      releasedTable.status === "available"
+    );
   };
 
   // ==========================================================
@@ -837,7 +911,7 @@ export function TableProvider({
   const getTableById = (
     tableId: string,
   ): CafeTable | undefined => {
-    return tables.find(
+    return tablesRef.current.find(
       (table) => table.id === tableId,
     );
   };
