@@ -1,0 +1,221 @@
+/* =========================================================
+   SMART CAFE - LUCKY DRAW PAGE
+   All styling for the customer Lucky Draw page.
+   ========================================================= */
+
+.lucky-draw-page {
+  min-height: 65vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: var(--page-bg, #f7f7f7);
+}
+
+.lucky-draw-card {
+  width: 100%;
+  max-width: 650px;
+  padding: 40px 28px;
+  text-align: center;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-color, #222222);
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 20px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+}
+
+.lucky-draw-icon {
+  margin-bottom: 12px;
+  font-size: 58px;
+}
+
+.lucky-draw-eyebrow {
+  margin: 0 0 8px;
+  color: var(--brand, #6b1028);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.lucky-draw-card h1 {
+  margin: 0 0 14px;
+  font-size: clamp(30px, 5vw, 44px);
+}
+
+.lucky-draw-description {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.lucky-draw-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0;
+  padding: 10px 14px;
+  border-radius: 30px;
+  background: #e9f8ee;
+  color: #176534;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lucky-draw-status-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #239447;
+}
+
+/* Eligibility rules */
+
+.lucky-draw-rules {
+  margin: 8px 0 24px;
+  padding: 20px;
+  text-align: left;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 14px;
+}
+
+.lucky-draw-rules h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+
+.lucky-draw-rules ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.7;
+}
+
+.lucky-draw-rules li {
+  padding-left: 3px;
+}
+
+/* Order entry form */
+
+.lucky-draw-form {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+  text-align: left;
+}
+
+.lucky-draw-form label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lucky-draw-form input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color, #cccccc);
+  border-radius: 8px;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-color, #222222);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.lucky-draw-form input:focus {
+  outline: 2px solid var(--brand, #6b1028);
+  outline-offset: 2px;
+}
+
+.lucky-draw-form input:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.lucky-draw-enter-button {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--brand, #6b1028);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.lucky-draw-enter-button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.lucky-draw-enter-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Entry validation feedback */
+
+.lucky-draw-message {
+  margin: 16px 0;
+  padding: 13px 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.lucky-draw-message.is-success {
+  border: 1px solid #a5d6b2;
+  background: #e9f8ee;
+  color: #176534;
+}
+
+.lucky-draw-message.is-error {
+  border: 1px solid #efb4b4;
+  background: #fff0f0;
+  color: #a32020;
+}
+
+.lucky-draw-footnote {
+  margin: 20px 0;
+  color: var(--muted-text, #666666);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* Navigation link */
+
+.lucky-draw-link {
+  display: inline-block;
+  padding: 12px 22px;
+  border-radius: 8px;
+  background: var(--brand, #6b1028);
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.lucky-draw-link:hover {
+  opacity: 0.88;
+}
+
+/* Mobile layout */
+
+@media (max-width: 600px) {
+  .lucky-draw-page {
+    min-height: 60vh;
+    padding: 24px 14px;
+  }
+
+  .lucky-draw-card {
+    padding: 30px 18px;
+  }
+
+  .lucky-draw-rules {
+    padding: 16px;
+  }
+}
