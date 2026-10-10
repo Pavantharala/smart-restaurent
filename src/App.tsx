@@ -79,6 +79,7 @@ import OrderSuccessPage from "./pages/customer/OrderSuccessPage";
 import OrderDetailsPage from "./pages/customer/OrderDetailsPage";
 import WaitingLoungePage from "./pages/customer/WaitingLoungePage";
 import GamingPage from "./pages/customer/GamingPage";
+import LuckyDrawPage from "./pages/customer/LuckyDrawPage";
 
 
 // =========================================================
@@ -150,6 +151,7 @@ import AdminGamingPage from "./pages/admin/AdminGamingPage";
 import AdminQueuePage from "./pages/admin/AdminQueuePage";
 import AdminCustomersPage from "./pages/admin/AdminCustomersPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import AdminLuckyDrawPage from "./pages/admin/AdminLuckyDrawPage";
 
 
 // =========================================================
@@ -264,6 +266,11 @@ function App() {
             element={<WaitingLoungePage />}
           />
 
+          {/* PHASE 20 - CUSTOMER LUCKY DRAW */}
+          <Route
+            path="/lucky-draw"
+            element={<LuckyDrawPage />}
+          />
 
           {/* ==================================================
               GAMING ZONE
@@ -566,6 +573,13 @@ function App() {
             path="tables"
             element={<AdminTablesPage />}
           />
+
+          {/* Reservation */}
+
+          <Route
+           path="lucky-draw"
+           element={<AdminLuckyDrawPage />}
+           />
 
 
           {/* ==================================================

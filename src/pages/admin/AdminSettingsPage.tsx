@@ -1,34 +1,26 @@
-// =========================================================
-// SMART CAFE - ADMIN SETTINGS PAGE
-// =========================================================
 
 import { useEffect, useState } from "react";
 
-import {
-  useSettings,
-} from "../../context/SettingsContext";
-
+import { useSettings } from "../../context/SettingsContext";
 import type { CafeSettings } from "../../types/Settings";
 
 // =========================================================
-// SMART CAFE - ADMIN SETTINGS
+// SMART CAFE - ADMIN SETTINGS PAGE
 // =========================================================
 //
-// This page allows the admin to configure Smart Cafe
-// business rules without changing source code.
-//
-// IMPORTANT:
-//
-// Admin edits a local draft first.
-//
-// SettingsContext is updated only when:
-//     Save Changes
-//
-// is clicked.
-//
-// Validation happens before saving.
+// The admin edits a draft first. Changes are applied to
+// SettingsContext only after Save Changes is clicked.
 //
 // =========================================================
+
+type NumericSettingKey =
+  | "gamingDurationMinutes"
+  | "gamingClosingCountdownMinutes"
+  | "queueWaitTimePerPositionMinutes"
+  | "queueProjectedUsageMinutes"
+  | "reservationTurnoverBufferMinutes"
+  | "reservationAmount"
+  | "reservationPartialPaymentAmount";
 
 export default function AdminSettingsPage() {
   const {
@@ -37,73 +29,17 @@ export default function AdminSettingsPage() {
     resetSettings,
   } = useSettings();
 
-  // =======================================================
-  // DRAFT SETTINGS
-  // =======================================================
-  //
-  // The admin edits the draft first.
-  //
-  // The real SettingsContext is updated only after
-  // clicking Save Changes.
-  //
-  // =======================================================
-
   const [draftSettings, setDraftSettings] =
-    useState(settings);
-
-  // =======================================================
-  // TEMPORARY NUMBER INPUT VALUES
-  // =======================================================
-  //
-  // Number inputs are temporarily stored as strings
-  // while the user is typing.
-  //
-  // This allows:
-  //
-  // 10 -> "" -> 20
-  //
-  // without React forcing a number immediately.
-  //
-  // =======================================================
+    useState<CafeSettings>(settings);
 
   const [numberInputs, setNumberInputs] =
-    useState<Record<string, string>>({});
+    useState<Partial<Record<NumericSettingKey, string>>>({});
 
-  // =======================================================
-  // SAVE STATE
-  // =======================================================
+  const [saved, setSaved] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
-  const [saved, setSaved] =
-    useState(false);
-
-  // =======================================================
-  // DIRTY STATE
-  // =======================================================
-  //
-  // true = there are unsaved changes.
-  //
-  // =======================================================
-
-  const [hasChanges, setHasChanges] =
-    useState(false);
-
-  // =======================================================
-  // VALIDATION ERROR
-  // =======================================================
-  //
-  // Stores a user-friendly validation message.
-  //
-  // Empty string = no validation error.
-  //
-  // =======================================================
-
-  const [validationError, setValidationError] =
-    useState("");
-
-  // =======================================================
-  // SYNCHRONIZE DRAFT WHEN SETTINGS CHANGE
-  // =======================================================
-
+  // Synchronize the draft when the saved settings change.
   useEffect(() => {
     setDraftSettings(settings);
     setNumberInputs({});
@@ -111,89 +47,34 @@ export default function AdminSettingsPage() {
     setValidationError("");
   }, [settings]);
 
-  // =======================================================
-  // UPDATE DRAFT VALUE
-  // =======================================================
-
-  function updateDraft(
-    updates: Partial<typeof settings>,
-  ) {
+  // Update the draft without saving it immediately.
+  function updateDraft(updates: Partial<CafeSettings>) {
     setDraftSettings((current) => ({
       ...current,
       ...updates,
     }));
 
     setHasChanges(true);
-
     setSaved(false);
-
-    // Clear an old validation message when the admin
-    // starts correcting a setting.
     setValidationError("");
   }
 
-  // =======================================================
-  // GET NUMBER INPUT VALUE
-  // =======================================================
+  function getNumberInputValue(key: NumericSettingKey) {
+    const temporaryValue = numberInputs[key];
 
-  function getNumberInputValue(
-    key: keyof typeof settings,
-  ) {
-    if (
-      Object.prototype.hasOwnProperty.call(
-        numberInputs,
-        key,
-      )
-    ) {
-      return numberInputs[key];
-    }
-
-    return String(draftSettings[key]);
+    return temporaryValue !== undefined
+      ? temporaryValue
+      : String(draftSettings[key]);
   }
 
-  // =======================================================
-  // HANDLE NUMBER TYPING
-  // =======================================================
-
+  // Allow temporary empty values while typing.
   function handleNumberChange(
-    key:
-      | "gamingDurationMinutes"
-      | "gamingClosingCountdownMinutes"
-      | "queueWaitTimePerPositionMinutes"
-      | "queueProjectedUsageMinutes"
-      | "reservationTurnoverBufferMinutes"
-      | "reservationAmount"
-      | "reservationPartialPaymentAmount",
+    key: NumericSettingKey,
     value: string,
   ) {
-    // -----------------------------------------------------
-    // Allow empty input while editing.
-    // -----------------------------------------------------
-
-    if (value === "") {
-      setNumberInputs((current) => ({
-        ...current,
-        [key]: "",
-      }));
-
-      setHasChanges(true);
-      setSaved(false);
-      setValidationError("");
-
+    if (value !== "" && !/^\d*\.?\d*$/.test(value)) {
       return;
     }
-
-    // -----------------------------------------------------
-    // Only allow numbers and decimal values.
-    // -----------------------------------------------------
-
-    if (!/^\d*\.?\d*$/.test(value)) {
-      return;
-    }
-
-    // -----------------------------------------------------
-    // Store temporary text.
-    // -----------------------------------------------------
 
     setNumberInputs((current) => ({
       ...current,
@@ -202,421 +83,211 @@ export default function AdminSettingsPage() {
 
     setHasChanges(true);
     setSaved(false);
-
-    // Clear previous validation error.
     setValidationError("");
   }
 
-  // =======================================================
-  // HANDLE NUMBER BLUR
-  // =======================================================
-  //
-  // Convert temporary text into the draft settings.
-  //
-  // IMPORTANT:
-  //
-  // This does NOT save to SettingsContext.
-  //
-  // =======================================================
+  // Copy a valid typed number into the draft.
+  function handleNumberBlur(key: NumericSettingKey) {
+    const rawValue = numberInputs[key];
 
-  function handleNumberBlur(
-    key:
-      | "gamingDurationMinutes"
-      | "gamingClosingCountdownMinutes"
-      | "queueWaitTimePerPositionMinutes"
-      | "queueProjectedUsageMinutes"
-      | "reservationTurnoverBufferMinutes"
-      | "reservationAmount"
-      | "reservationPartialPaymentAmount",
-  ) {
-    const rawValue =
-      numberInputs[key];
-
-    // -----------------------------------------------------
-    // Empty input
-    // -----------------------------------------------------
-    //
-    // Do not overwrite the existing draft value.
-    //
-    // The save validation will handle invalid states.
-    //
-    // -----------------------------------------------------
-
-    if (
-      rawValue === undefined ||
-      rawValue === ""
-    ) {
-      setNumberInputs((current) => {
-        const updated = {
-          ...current,
-        };
-
-        delete updated[key];
-
-        return updated;
-      });
-
+    if (rawValue === undefined || rawValue === "") {
       return;
     }
 
-    const numberValue =
-      Number(rawValue);
-
-    // -----------------------------------------------------
-    // Ignore invalid numeric values.
-    // -----------------------------------------------------
+    const numberValue = Number(rawValue);
 
     if (!Number.isFinite(numberValue)) {
       return;
     }
 
-    // -----------------------------------------------------
-    // Update ONLY the draft.
-    // -----------------------------------------------------
-
-    updateDraft({
+    setDraftSettings((current) => ({
+      ...current,
       [key]: numberValue,
-    });
-
-    // -----------------------------------------------------
-    // Remove temporary value.
-    // -----------------------------------------------------
+    }));
 
     setNumberInputs((current) => {
-      const updated = {
-        ...current,
-      };
-
+      const updated = { ...current };
       delete updated[key];
-
       return updated;
     });
   }
 
-  // =======================================================
-  // VALIDATE SETTINGS
-  // =======================================================
-  //
-  // Returns:
-  //
-  // "" = valid
-  //
-  // "message" = invalid
-  //
-  // =======================================================
-
-  function validateSettings(
-    values: CafeSettings,
-  ): string {
-    // -----------------------------------------------------
-    // Gaming duration
-    // -----------------------------------------------------
-
+  function validateSettings(values: CafeSettings): string {
     if (
       values.gamingDurationMinutes < 5 ||
       values.gamingDurationMinutes > 1440
     ) {
-      return (
-        "Gaming duration must be between 5 and 1440 minutes."
-      );
+      return "Gaming duration must be between 5 and 1440 minutes.";
     }
-
-    // -----------------------------------------------------
-    // Gaming closing countdown
-    // -----------------------------------------------------
 
     if (
       values.gamingClosingCountdownMinutes < 0 ||
       values.gamingClosingCountdownMinutes > 60
     ) {
-      return (
-        "Gaming closing countdown must be between 0 and 60 minutes."
-      );
+      return "Gaming closing countdown must be between 0 and 60 minutes.";
     }
-
-    // -----------------------------------------------------
-    // Gaming relationship
-    // -----------------------------------------------------
-    //
-    // Closing countdown cannot be longer than the
-    // complete gaming session.
-    //
-    // Example:
-    //
-    // Gaming = 30 minutes
-    // Closing = 40 minutes
-    //
-    // Invalid.
-    //
-    // -----------------------------------------------------
 
     if (
       values.gamingClosingCountdownMinutes >
       values.gamingDurationMinutes
     ) {
-      return (
-        "Gaming closing countdown cannot be greater than the gaming duration."
-      );
+      return "Gaming closing countdown cannot be greater than the gaming duration.";
     }
-
-    // -----------------------------------------------------
-    // Queue wait time
-    // -----------------------------------------------------
 
     if (
       values.queueWaitTimePerPositionMinutes < 1 ||
       values.queueWaitTimePerPositionMinutes > 120
     ) {
-      return (
-        "Queue wait time must be between 1 and 120 minutes."
-      );
+      return "Queue wait time must be between 1 and 120 minutes.";
     }
-
-    // -----------------------------------------------------
-    // Queue projected usage
-    // -----------------------------------------------------
 
     if (
       values.queueProjectedUsageMinutes < 5 ||
       values.queueProjectedUsageMinutes > 1440
     ) {
-      return (
-        "Queue projected usage must be between 5 and 1440 minutes."
-      );
+      return "Queue projected usage must be between 5 and 1440 minutes.";
     }
-
-    // -----------------------------------------------------
-    // Reservation turnover buffer
-    // -----------------------------------------------------
 
     if (
       values.reservationTurnoverBufferMinutes < 0 ||
       values.reservationTurnoverBufferMinutes > 120
     ) {
-      return (
-        "Reservation turnover buffer must be between 0 and 120 minutes."
-      );
+      return "Reservation turnover buffer must be between 0 and 120 minutes.";
     }
 
-    // -----------------------------------------------------
-    // Reservation amount
-    // -----------------------------------------------------
-
-    if (
-      values.reservationAmount < 0
-    ) {
-      return (
-        "Reservation amount cannot be negative."
-      );
+    if (values.reservationAmount < 0) {
+      return "Reservation amount cannot be negative.";
     }
 
-    // -----------------------------------------------------
-    // Partial payment
-    // -----------------------------------------------------
-
-    if (
-      values.reservationPartialPaymentAmount < 0
-    ) {
-      return (
-        "Reservation partial payment cannot be negative."
-      );
+    if (values.reservationPartialPaymentAmount < 0) {
+      return "Reservation partial payment cannot be negative.";
     }
-
-    // -----------------------------------------------------
-    // Partial payment relationship
-    // -----------------------------------------------------
-    //
-    // Example:
-    //
-    // Reservation amount = ₹200
-    // Partial payment = ₹300
-    //
-    // Invalid.
-    //
-    // -----------------------------------------------------
 
     if (
       values.reservationPartialPaymentAmount >
       values.reservationAmount
     ) {
-      return (
-        "Reservation partial payment cannot be greater than the reservation amount."
-      );
+      return "Reservation partial payment cannot be greater than the reservation amount.";
     }
-
-    // -----------------------------------------------------
-    // All validation passed.
-    // -----------------------------------------------------
 
     return "";
   }
 
-  // =======================================================
-  // SAVE ALL CHANGES
-  // =======================================================
-
+  // Save all draft values after validation.
   function handleSave() {
-    // -----------------------------------------------------
-    // Make a copy of the draft.
-    // -----------------------------------------------------
-
     const cleanedSettings: CafeSettings = {
       ...draftSettings,
     };
 
-    // -----------------------------------------------------
-    // Convert temporary number inputs into numbers.
-    // -----------------------------------------------------
+    const numericKeys: NumericSettingKey[] = [
+      "gamingDurationMinutes",
+      "gamingClosingCountdownMinutes",
+      "queueWaitTimePerPositionMinutes",
+      "queueProjectedUsageMinutes",
+      "reservationTurnoverBufferMinutes",
+      "reservationAmount",
+      "reservationPartialPaymentAmount",
+    ];
 
-    (
-      [
-        "gamingDurationMinutes",
-        "gamingClosingCountdownMinutes",
-        "queueWaitTimePerPositionMinutes",
-        "queueProjectedUsageMinutes",
-        "reservationTurnoverBufferMinutes",
-        "reservationAmount",
-        "reservationPartialPaymentAmount",
-      ] as const
-    ).forEach((key) => {
-      const rawValue =
-        numberInputs[key];
+    for (const key of numericKeys) {
+      const rawValue = numberInputs[key];
 
-      if (
-        rawValue !== undefined &&
-        rawValue !== ""
-      ) {
-        const numberValue =
-          Number(rawValue);
-
-        if (Number.isFinite(numberValue)) {
-          cleanedSettings[key] =
-            numberValue;
-        }
+      // An empty number field must not silently save an
+      // old value while displaying an empty input.
+      if (rawValue === "") {
+        setValidationError(
+          "Please enter a number in every numeric field.",
+        );
+        setSaved(false);
+        return;
       }
-    });
 
-    // =====================================================
-    // VALIDATION
-    // =====================================================
+      if (rawValue !== undefined) {
+        const numberValue = Number(rawValue);
 
-    const error =
-      validateSettings(cleanedSettings);
+        if (!Number.isFinite(numberValue)) {
+          setValidationError(
+            "Please enter valid numbers in the settings.",
+          );
+          setSaved(false);
+          return;
+        }
 
-    // -----------------------------------------------------
-    // Stop if validation fails.
-    // -----------------------------------------------------
+        cleanedSettings[key] = numberValue;
+      }
+    }
+
+    const error = validateSettings(cleanedSettings);
 
     if (error) {
       setValidationError(error);
       setSaved(false);
-
       return;
     }
 
-    // -----------------------------------------------------
-    // Validation passed.
-    // -----------------------------------------------------
-
-    setValidationError("");
-
-    // =====================================================
-    // SAVE TO SETTINGS CONTEXT
-    // =====================================================
-
-    updateSettings(
-      cleanedSettings,
-    );
-
-    // -----------------------------------------------------
-    // Clear temporary inputs.
-    // -----------------------------------------------------
-
+    updateSettings(cleanedSettings);
+    setDraftSettings(cleanedSettings);
     setNumberInputs({});
-
     setHasChanges(false);
-
-    // -----------------------------------------------------
-    // Show success message.
-    // -----------------------------------------------------
-
+    setValidationError("");
     setSaved(true);
-
-    window.setTimeout(() => {
-      setSaved(false);
-    }, 2500);
   }
 
-  // =======================================================
-  // RESET SETTINGS
-  // =======================================================
-
   function handleReset() {
-    const confirmed =
-      window.confirm(
-        "Reset all Smart Cafe settings to their default values?",
-      );
+    const confirmed = window.confirm(
+      "Reset all Smart Cafe settings to their default values?",
+    );
 
     if (!confirmed) {
       return;
     }
 
-    // -----------------------------------------------------
-    // Reset Context
-    // -----------------------------------------------------
-
     resetSettings();
-
-    // -----------------------------------------------------
-    // Clear temporary values.
-    // -----------------------------------------------------
-
     setNumberInputs({});
-
     setHasChanges(false);
-
     setValidationError("");
-
-    // -----------------------------------------------------
-    // Show success message.
-    // -----------------------------------------------------
-
     setSaved(true);
-
-    window.setTimeout(() => {
-      setSaved(false);
-    }, 2500);
   }
 
-  // =======================================================
-  // UI
-  // =======================================================
+  // Reusable numeric field to keep the page consistent.
+  function numberField(
+    key: NumericSettingKey,
+    label: string,
+    min: number,
+    max?: number,
+    help?: string,
+  ) {
+    return (
+      <label className="admin-settings-field" key={key}>
+        <span>{label}</span>
+
+        <input
+          type="number"
+          min={min}
+          max={max}
+          value={getNumberInputValue(key)}
+          onChange={(event) =>
+            handleNumberChange(key, event.target.value)
+          }
+          onBlur={() => handleNumberBlur(key)}
+        />
+
+        {help && <small>{help}</small>}
+      </label>
+    );
+  }
 
   return (
     <div className="admin-settings-page">
-
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
+      {/* Page header and primary save button */}
       <div className="admin-page-header">
-
         <div>
-
-          <h1>
-            Admin Settings
-          </h1>
-
+          <h1>Admin Settings</h1>
           <p>
-            Manage Smart Cafe business rules and
-            application configuration.
+            Manage Smart Cafe business rules and application
+            configuration.
           </p>
-
         </div>
-
-        {/* ===============================================
-            SAVE AREA
-        =============================================== */}
 
         <div
           style={{
@@ -626,7 +297,6 @@ export default function AdminSettingsPage() {
             flexWrap: "wrap",
           }}
         >
-
           {saved && (
             <div
               style={{
@@ -637,6 +307,7 @@ export default function AdminSettingsPage() {
                 fontWeight: 600,
                 border: "1px solid #bbf7d0",
               }}
+              role="status"
             >
               ✓ Settings saved successfully
             </div>
@@ -650,46 +321,27 @@ export default function AdminSettingsPage() {
               padding: "11px 20px",
               borderRadius: "9px",
               border: "none",
-              background: hasChanges
-                ? "#2563eb"
-                : "#9ca3af",
+              background: hasChanges ? "#2563eb" : "#9ca3af",
               color: "#fff",
-              cursor: hasChanges
-                ? "pointer"
-                : "not-allowed",
+              cursor: hasChanges ? "pointer" : "not-allowed",
               fontWeight: 700,
               fontSize: "14px",
-              boxShadow: hasChanges
-                ? "0 2px 6px rgba(37, 99, 235, 0.25)"
-                : "none",
             }}
           >
             Save Changes
           </button>
-
         </div>
-
       </div>
 
-
-      {/* =================================================
-          VALIDATION ERROR
-      ================================================= */}
-
+      {/* Validation message */}
       {validationError && (
-        <div className="admin-settings-error">
+        <div className="admin-settings-error" role="alert">
           <strong>Unable to save settings:</strong>
-          <div>
-            {validationError}
-          </div>
+          <div>{validationError}</div>
         </div>
       )}
 
-
-      {/* =================================================
-          UNSAVED CHANGES NOTICE
-      ================================================= */}
-
+      {/* Unsaved changes warning */}
       {hasChanges && (
         <div
           style={{
@@ -699,7 +351,6 @@ export default function AdminSettingsPage() {
             background: "#fff7ed",
             border: "1px solid #fed7aa",
             color: "#9a3412",
-            fontWeight: 500,
           }}
         >
           You have unsaved changes. Click
@@ -708,488 +359,201 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-
-      {/* =================================================
-          RESTAURANT INFORMATION
-      ================================================= */}
-
+      {/* Restaurant information */}
       <section className="admin-settings-card">
-
         <div className="admin-settings-card-header">
-
-          <h2>
-            Restaurant Information
-          </h2>
-
+          <h2>Restaurant Information</h2>
           <p>
-            Basic information displayed throughout
-            the Smart Cafe application.
+            Basic information displayed throughout Smart Cafe.
           </p>
-
         </div>
 
-
         <div className="admin-settings-grid">
-
           <label className="admin-settings-field">
-
-            <span>
-              Restaurant Name
-            </span>
-
+            <span>Restaurant Name</span>
             <input
               type="text"
-              value={
-                draftSettings.restaurantName
-              }
+              value={draftSettings.restaurantName}
               onChange={(event) =>
                 updateDraft({
-                  restaurantName:
-                    event.target.value,
+                  restaurantName: event.target.value,
                 })
               }
             />
-
           </label>
 
-
           <label className="admin-settings-field">
-
-            <span>
-              Phone Number
-            </span>
-
+            <span>Phone Number</span>
             <input
               type="text"
-              value={
-                draftSettings.restaurantPhone
-              }
+              value={draftSettings.restaurantPhone}
               onChange={(event) =>
                 updateDraft({
-                  restaurantPhone:
-                    event.target.value,
+                  restaurantPhone: event.target.value,
                 })
               }
             />
-
           </label>
-
 
           <label className="admin-settings-field admin-settings-full">
-
-            <span>
-              Address
-            </span>
-
+            <span>Address</span>
             <textarea
-              value={
-                draftSettings.restaurantAddress
-              }
+              value={draftSettings.restaurantAddress}
               onChange={(event) =>
                 updateDraft({
-                  restaurantAddress:
-                    event.target.value,
+                  restaurantAddress: event.target.value,
                 })
               }
               rows={3}
             />
-
           </label>
-
         </div>
-
       </section>
 
-
-      {/* =================================================
-          GAMING
-      ================================================= */}
-
+      {/* Gaming settings */}
       <section className="admin-settings-card">
-
         <div className="admin-settings-card-header">
-
-          <h2>
-            Gaming
-          </h2>
-
+          <h2>Gaming</h2>
           <p>
-            Control gaming session duration and the
-            final closing countdown.
+            Control gaming session duration and the closing
+            countdown.
           </p>
-
         </div>
-
 
         <div className="admin-settings-grid">
+          {numberField(
+            "gamingDurationMinutes",
+            "Gaming Duration (minutes)",
+            5,
+            1440,
+            "Default: 60 minutes per order.",
+          )}
 
-          <label className="admin-settings-field">
-
-            <span>
-              Gaming Duration (minutes)
-            </span>
-
-            <input
-              type="number"
-              min="5"
-              max="1440"
-              value={getNumberInputValue(
-                "gamingDurationMinutes",
-              )}
-              onChange={(event) =>
-                handleNumberChange(
-                  "gamingDurationMinutes",
-                  event.target.value,
-                )
-              }
-              onBlur={() =>
-                handleNumberBlur(
-                  "gamingDurationMinutes",
-                )
-              }
-            />
-
-            <small>
-              Default: 60 minutes per order.
-            </small>
-
-          </label>
-
-
-          <label className="admin-settings-field">
-
-            <span>
-              Closing Countdown (minutes)
-            </span>
-
-            <input
-              type="number"
-              min="0"
-              max="60"
-              value={getNumberInputValue(
-                "gamingClosingCountdownMinutes",
-              )}
-              onChange={(event) =>
-                handleNumberChange(
-                  "gamingClosingCountdownMinutes",
-                  event.target.value,
-                )
-              }
-              onBlur={() =>
-                handleNumberBlur(
-                  "gamingClosingCountdownMinutes",
-                )
-              }
-            />
-
-            <small>
-              Default: 5 minutes before gaming ends.
-            </small>
-
-          </label>
-
+          {numberField(
+            "gamingClosingCountdownMinutes",
+            "Closing Countdown (minutes)",
+            0,
+            60,
+            "Default: 5 minutes before gaming ends.",
+          )}
         </div>
-
       </section>
 
-
-      {/* =================================================
-          WAITING LOUNGE / QUEUE
-      ================================================= */}
-
+      {/* Waiting lounge and queue settings */}
       <section className="admin-settings-card">
-
         <div className="admin-settings-card-header">
-
-          <h2>
-            Waiting Lounge & Queue
-          </h2>
-
+          <h2>Waiting Lounge & Queue</h2>
           <p>
-            Configure estimated waiting times and
-            projected table usage.
+            Configure estimated waiting times and projected
+            table usage.
           </p>
-
         </div>
-
 
         <div className="admin-settings-grid">
+          {numberField(
+            "queueWaitTimePerPositionMinutes",
+            "Wait Time Per Position (minutes)",
+            1,
+            120,
+            "Default: 10 minutes per queue position.",
+          )}
 
-          <label className="admin-settings-field">
-
-            <span>
-              Wait Time Per Position (minutes)
-            </span>
-
-            <input
-              type="number"
-              min="1"
-              max="120"
-              value={getNumberInputValue(
-                "queueWaitTimePerPositionMinutes",
-              )}
-              onChange={(event) =>
-                handleNumberChange(
-                  "queueWaitTimePerPositionMinutes",
-                  event.target.value,
-                )
-              }
-              onBlur={() =>
-                handleNumberBlur(
-                  "queueWaitTimePerPositionMinutes",
-                )
-              }
-            />
-
-            <small>
-              Default: 10 minutes per queue
-              position.
-            </small>
-
-          </label>
-
-
-          <label className="admin-settings-field">
-
-            <span>
-              Projected Table Usage (minutes)
-            </span>
-
-            <input
-              type="number"
-              min="5"
-              max="1440"
-              value={getNumberInputValue(
-                "queueProjectedUsageMinutes",
-              )}
-              onChange={(event) =>
-                handleNumberChange(
-                  "queueProjectedUsageMinutes",
-                  event.target.value,
-                )
-              }
-              onBlur={() =>
-                handleNumberBlur(
-                  "queueProjectedUsageMinutes",
-                )
-              }
-            />
-
-            <small>
-              Used when estimating future table
-              availability.
-            </small>
-
-          </label>
-
+          {numberField(
+            "queueProjectedUsageMinutes",
+            "Projected Table Usage (minutes)",
+            5,
+            1440,
+            "Used when estimating future table availability.",
+          )}
         </div>
-
 
         <div className="admin-settings-toggle">
-
           <div>
-
-            <strong>
-              Queue Notifications
-            </strong>
-
+            <strong>Queue Notifications</strong>
             <p>
-              Enable customer notifications related
-              to the Waiting Lounge queue.
+              Enable customer notifications related to the
+              Waiting Lounge queue.
             </p>
-
           </div>
-
 
           <input
             type="checkbox"
-            checked={
-              draftSettings.queueNotificationsEnabled
-            }
+            checked={draftSettings.queueNotificationsEnabled}
             onChange={(event) =>
               updateDraft({
-                queueNotificationsEnabled:
-                  event.target.checked,
+                queueNotificationsEnabled: event.target.checked,
               })
             }
+            aria-label="Enable queue notifications"
           />
-
         </div>
-
       </section>
 
-
-      {/* =================================================
-          RESERVATIONS
-      ================================================= */}
-
+      {/* Reservation settings */}
       <section className="admin-settings-card">
-
         <div className="admin-settings-card-header">
-
-          <h2>
-            Reservations
-          </h2>
-
+          <h2>Reservations</h2>
           <p>
-            Configure reservation protection and
-            payment behaviour.
+            Configure reservation protection and payment
+            behaviour.
           </p>
-
         </div>
-
 
         <div className="admin-settings-grid">
+          {numberField(
+            "reservationTurnoverBufferMinutes",
+            "Turnover Buffer (minutes)",
+            0,
+            120,
+            "Default: 10 minutes after a reservation ends.",
+          )}
 
-          <label className="admin-settings-field">
+          {numberField(
+            "reservationAmount",
+            "Reservation Amount (₹)",
+            0,
+            undefined,
+            "Reservation amount configured by the admin.",
+          )}
 
-            <span>
-              Turnover Buffer (minutes)
-            </span>
-
-            <input
-              type="number"
-              min="0"
-              max="120"
-              value={getNumberInputValue(
-                "reservationTurnoverBufferMinutes",
-              )}
-              onChange={(event) =>
-                handleNumberChange(
-                  "reservationTurnoverBufferMinutes",
-                  event.target.value,
-                )
-              }
-              onBlur={() =>
-                handleNumberBlur(
-                  "reservationTurnoverBufferMinutes",
-                )
-              }
-            />
-
-            <small>
-              Default: 10 minutes after a
-              reservation ends.
-            </small>
-
-          </label>
-
-
-          <label className="admin-settings-field">
-
-            <span>
-              Reservation Amount (₹)
-            </span>
-
-            <input
-              type="number"
-              min="0"
-              value={getNumberInputValue(
-                "reservationAmount",
-              )}
-              onChange={(event) =>
-                handleNumberChange(
-                  "reservationAmount",
-                  event.target.value,
-                )
-              }
-              onBlur={() =>
-                handleNumberBlur(
-                  "reservationAmount",
-                )
-              }
-            />
-
-            <small>
-              Reservation amount configured by
-              the admin.
-            </small>
-
-          </label>
-
-
-          <label className="admin-settings-field">
-
-            <span>
-              Partial Payment Amount (₹)
-            </span>
-
-            <input
-              type="number"
-              min="0"
-              value={getNumberInputValue(
-                "reservationPartialPaymentAmount",
-              )}
-              onChange={(event) =>
-                handleNumberChange(
-                  "reservationPartialPaymentAmount",
-                  event.target.value,
-                )
-              }
-              onBlur={() =>
-                handleNumberBlur(
-                  "reservationPartialPaymentAmount",
-                )
-              }
-            />
-
-            <small>
-              Cannot be greater than the
-              reservation amount.
-            </small>
-
-          </label>
-
+          {numberField(
+            "reservationPartialPaymentAmount",
+            "Partial Payment Amount (₹)",
+            0,
+            undefined,
+            "Cannot be greater than the reservation amount.",
+          )}
         </div>
 
-
         <div className="admin-settings-toggle">
-
           <div>
-
-            <strong>
-              Require Reservation Payment
-            </strong>
-
+            <strong>Require Reservation Payment</strong>
             <p>
-              When disabled, customers can reserve
-              without paying an advance.
+              When disabled, customers can reserve without
+              paying an advance.
             </p>
-
           </div>
-
 
           <input
             type="checkbox"
-            checked={
-              draftSettings.reservationPaymentRequired
-            }
+            checked={draftSettings.reservationPaymentRequired}
             onChange={(event) =>
               updateDraft({
-                reservationPaymentRequired:
-                  event.target.checked,
+                reservationPaymentRequired: event.target.checked,
               })
             }
+            aria-label="Require reservation payment"
           />
-
         </div>
 
-
         <div className="admin-settings-toggle">
-
           <div>
-
-            <strong>
-              Reservation Notifications
-            </strong>
-
+            <strong>Reservation Notifications</strong>
             <p>
-              Enable customer notifications related
-              to reservations.
+              Enable customer notifications related to
+              reservations.
             </p>
-
           </div>
-
 
           <input
             type="checkbox"
@@ -1202,28 +566,54 @@ export default function AdminSettingsPage() {
                   event.target.checked,
               })
             }
+            aria-label="Enable reservation notifications"
           />
-
         </div>
-
       </section>
 
+      {/* Lucky Draw settings */}
+      <section className="admin-settings-card">
+        <div className="admin-settings-card-header">
+          <h2>Lucky Draw</h2>
+          <p>
+            Control whether the Smart Cafe Lucky Draw feature
+            is available to customers.
+          </p>
+        </div>
 
-      {/* =================================================
-          BOTTOM ACTION BAR
-      ================================================= */}
+        <div className="admin-settings-toggle">
+          <div>
+            <strong>Enable Lucky Draw</strong>
+            <p>
+              When enabled, customers can access the Lucky Draw
+              feature once the customer-facing page is
+              implemented. Save changes to apply this setting.
+            </p>
+          </div>
 
+          <input
+            type="checkbox"
+            checked={draftSettings.luckyDrawEnabled}
+            onChange={(event) =>
+              updateDraft({
+                luckyDrawEnabled: event.target.checked,
+              })
+            }
+            aria-label="Enable Lucky Draw"
+          />
+        </div>
+      </section>
+
+      {/* Bottom save action */}
       <section
         className="admin-settings-card"
         style={{
           position: "sticky",
           bottom: "16px",
           zIndex: 10,
-          boxShadow:
-            "0 4px 20px rgba(0, 0, 0, 0.08)",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
         }}
       >
-
         <div
           style={{
             display: "flex",
@@ -1233,29 +623,14 @@ export default function AdminSettingsPage() {
             flexWrap: "wrap",
           }}
         >
-
           <div>
-
-            <h2
-              style={{
-                marginBottom: "6px",
-              }}
-            >
+            <h2 style={{ marginBottom: "6px" }}>
               Save Settings
             </h2>
-
-            <p
-              style={{
-                margin: 0,
-                color: "#6b7280",
-              }}
-            >
-              Review your changes and save them
-              when you're ready.
+            <p style={{ margin: 0, color: "#6b7280" }}>
+              Review your changes and save them when ready.
             </p>
-
           </div>
-
 
           <button
             type="button"
@@ -1265,48 +640,28 @@ export default function AdminSettingsPage() {
               padding: "12px 24px",
               borderRadius: "9px",
               border: "none",
-              background: hasChanges
-                ? "#2563eb"
-                : "#9ca3af",
+              background: hasChanges ? "#2563eb" : "#9ca3af",
               color: "#fff",
-              cursor: hasChanges
-                ? "pointer"
-                : "not-allowed",
+              cursor: hasChanges ? "pointer" : "not-allowed",
               fontWeight: 700,
               fontSize: "15px",
               minWidth: "150px",
-              boxShadow: hasChanges
-                ? "0 3px 8px rgba(37, 99, 235, 0.25)"
-                : "none",
             }}
           >
             Save Changes
           </button>
-
         </div>
-
       </section>
 
-
-      {/* =================================================
-          RESET SETTINGS
-      ================================================= */}
-
+      {/* Reset settings */}
       <section className="admin-settings-card">
-
         <div className="admin-settings-card-header">
-
-          <h2>
-            Reset Settings
-          </h2>
-
+          <h2>Reset Settings</h2>
           <p>
-            Restore all settings to the original
-            Smart Cafe defaults.
+            Restore all settings to the original Smart Cafe
+            defaults.
           </p>
-
         </div>
-
 
         <button
           type="button"
@@ -1323,9 +678,7 @@ export default function AdminSettingsPage() {
         >
           Reset to Defaults
         </button>
-
       </section>
-
     </div>
   );
 }

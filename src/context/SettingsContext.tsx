@@ -1,3 +1,4 @@
+
 import {
   createContext,
   useContext,
@@ -13,15 +14,10 @@ import type { CafeSettings } from "../types/Settings";
 // SMART CAFE - SETTINGS CONTEXT
 // =========================================================
 //
-// This context stores the restaurant's configurable
-// business settings.
+// Stores configurable business settings.
 //
-// Admin can change these values from:
-//
-// /admin/settings
-//
-// Other parts of the application can then read the
-// settings instead of using hard-coded numbers.
+// Settings are saved in localStorage so they remain
+// available after the browser is refreshed.
 //
 // =========================================================
 
@@ -56,6 +52,10 @@ const DEFAULT_SETTINGS: CafeSettings = {
   // Notifications
   queueNotificationsEnabled: true,
   reservationNotificationsEnabled: true,
+
+  // Lucky Draw
+  // Disabled until the admin enables it.
+  luckyDrawEnabled: false,
 };
 
 // =========================================================
@@ -64,9 +64,7 @@ const DEFAULT_SETTINGS: CafeSettings = {
 
 interface SettingsContextType {
   settings: CafeSettings;
-
   updateSettings: (updates: Partial<CafeSettings>) => void;
-
   resetSettings: () => void;
 }
 
@@ -74,16 +72,16 @@ interface SettingsContextType {
 // CREATE CONTEXT
 // =========================================================
 
-const SettingsContext = createContext<SettingsContextType | undefined>(
-  undefined,
-);
+const SettingsContext = createContext<
+  SettingsContextType | undefined
+>(undefined);
 
 // =========================================================
 // NORMALIZE SETTINGS
 // =========================================================
 //
-// This protects the application if incorrect values are
-// stored in localStorage.
+// Merges saved settings with defaults. This also supports
+// older localStorage data that has no Lucky Draw setting.
 //
 // =========================================================
 
@@ -117,7 +115,10 @@ function normalizeSettings(
     // Gaming
     gamingDurationMinutes: Math.max(
       5,
-      Math.min(1440, Number(merged.gamingDurationMinutes) || 60),
+      Math.min(
+        1440,
+        Number(merged.gamingDurationMinutes) || 60,
+      ),
     ),
 
     gamingClosingCountdownMinutes: Math.max(
@@ -145,7 +146,7 @@ function normalizeSettings(
       ),
     ),
 
-    // Reservation
+    // Reservations
     reservationTurnoverBufferMinutes: Math.max(
       0,
       Math.min(
@@ -154,7 +155,7 @@ function normalizeSettings(
       ),
     ),
 
-    // Payment
+    // Reservation payment
     reservationAmount: Math.max(
       0,
       Number(merged.reservationAmount) || 0,
@@ -177,6 +178,12 @@ function normalizeSettings(
 
     reservationNotificationsEnabled:
       Boolean(merged.reservationNotificationsEnabled),
+
+    // Lucky Draw
+    luckyDrawEnabled:
+      typeof merged.luckyDrawEnabled === "boolean"
+        ? merged.luckyDrawEnabled
+        : DEFAULT_SETTINGS.luckyDrawEnabled,
   };
 }
 
@@ -189,10 +196,7 @@ export function SettingsProvider({
 }: {
   children: ReactNode;
 }) {
-  // =======================================================
-  // LOAD SETTINGS
-  // =======================================================
-
+  // Load and validate saved settings.
   const [settings, setSettings] = useState<CafeSettings>(() => {
     try {
       const stored = localStorage.getItem(
@@ -203,9 +207,19 @@ export function SettingsProvider({
         return DEFAULT_SETTINGS;
       }
 
-      const parsed = JSON.parse(stored);
+      const parsed: unknown = JSON.parse(stored);
 
-      return normalizeSettings(parsed);
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
+        return DEFAULT_SETTINGS;
+      }
+
+      return normalizeSettings(
+        parsed as Partial<CafeSettings>,
+      );
     } catch (error) {
       console.error(
         "Failed to load Smart Cafe settings:",
@@ -216,21 +230,22 @@ export function SettingsProvider({
     }
   });
 
-  // =======================================================
-  // SAVE SETTINGS
-  // =======================================================
-
+  // Save settings whenever they change.
   useEffect(() => {
-    localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify(settings),
-    );
+    try {
+      localStorage.setItem(
+        SETTINGS_STORAGE_KEY,
+        JSON.stringify(settings),
+      );
+    } catch (error) {
+      console.error(
+        "Failed to save Smart Cafe settings:",
+        error,
+      );
+    }
   }, [settings]);
 
-  // =======================================================
-  // UPDATE SETTINGS
-  // =======================================================
-
+  // Update selected settings while preserving the rest.
   const updateSettings = (
     updates: Partial<CafeSettings>,
   ) => {
@@ -242,17 +257,10 @@ export function SettingsProvider({
     );
   };
 
-  // =======================================================
-  // RESET SETTINGS
-  // =======================================================
-
+  // Restore all settings to their defaults.
   const resetSettings = () => {
-    setSettings(DEFAULT_SETTINGS);
+    setSettings({ ...DEFAULT_SETTINGS });
   };
-
-  // =======================================================
-  // CONTEXT VALUE
-  // =======================================================
 
   const value = useMemo(
     () => ({
