@@ -406,3 +406,12 @@
     flex-direction: column;
   }
 }
+
+/* Phase 23.4 — Period comparisons */
+
+.dashboard-comparison-description {
+  margin: -8px 0 16px;
+  color: var(--text-secondary, #707070);
+  font-size: 13px;
+  line-height: 1.6;
+}

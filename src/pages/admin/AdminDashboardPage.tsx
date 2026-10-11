@@ -182,6 +182,27 @@ function isInsideRange(dateValue: string, range: DateRange): boolean {
   );
 }
 
+function getPreviousRange(range: DateRange): DateRange {
+  const duration = range.endExclusive.getTime() - range.start.getTime();
+
+  return {
+    start: new Date(range.start.getTime() - duration),
+    endExclusive: range.start,
+    label: "Previous equivalent period",
+  };
+}
+
+function formatPercentageChange(current: number, previous: number): string {
+  if (previous === 0) {
+    return current === 0 ? "0%" : "No previous baseline";
+  }
+
+  const percentage = ((current - previous) / previous) * 100;
+  const sign = percentage > 0 ? "+" : "";
+
+  return `${sign}${percentage.toFixed(1)}%`;
+}
+
 export default function AdminDashboardPage() {
   const { orders } = useOrder();
   const { menuItems } = useMenu();
@@ -199,6 +220,11 @@ export default function AdminDashboardPage() {
   const dateRange = useMemo(
     () => getDateRange(period, customStart, customEnd),
     [period, customStart, customEnd],
+  );
+
+  const previousRange = useMemo(
+    () => getPreviousRange(dateRange),
+    [dateRange],
   );
 
   const metrics = useMemo(() => {
@@ -309,6 +335,39 @@ export default function AdminDashboardPage() {
     };
   }, [orders, menuItems, tables, queue, reservations, sessions, dateRange]);
 
+  const comparison = useMemo(() => {
+    const previousOrders = orders.filter((order) =>
+      isInsideRange(order.createdAt, previousRange),
+    );
+
+    const previousPaidOrders = previousOrders.filter(
+      (order) => order.paymentStatus === "paid",
+    );
+
+    const previousRevenue = previousPaidOrders.reduce(
+      (total, order) => total + order.totalAmount,
+      0,
+    );
+
+    return {
+      previousRevenue,
+      previousOrderCount: previousOrders.length,
+      revenueChange: formatPercentageChange(
+        metrics.recordedRevenue,
+        previousRevenue,
+      ),
+      orderChange: formatPercentageChange(
+        metrics.rangeOrderCount,
+        previousOrders.length,
+      ),
+    };
+  }, [
+    orders,
+    previousRange,
+    metrics.recordedRevenue,
+    metrics.rangeOrderCount,
+  ]);
+
   const revenueBuckets = useMemo<RevenueBucket[]>(() => {
     const start = dateRange.start;
     const end = dateRange.endExclusive;
@@ -318,23 +377,19 @@ export default function AdminDashboardPage() {
 
     const buckets: RevenueBucket[] = [];
 
-    // Show daily bars for short periods and monthly bars for long periods.
     if (totalDays <= 31) {
       for (
         let cursor = startOfDay(start);
         cursor < end;
         cursor = addDays(cursor, 1)
       ) {
-        const bucketStart = cursor;
-        const bucketEnd = addDays(cursor, 1);
-
         buckets.push({
           label: cursor.toLocaleDateString("en-IN", {
             day: "2-digit",
             month: "short",
           }),
-          start: bucketStart,
-          endExclusive: bucketEnd,
+          start: cursor,
+          endExclusive: addDays(cursor, 1),
           revenue: 0,
         });
       }
@@ -342,7 +397,6 @@ export default function AdminDashboardPage() {
       let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
 
       while (cursor < end) {
-        const bucketStart = cursor;
         const bucketEnd = new Date(
           cursor.getFullYear(),
           cursor.getMonth() + 1,
@@ -354,7 +408,7 @@ export default function AdminDashboardPage() {
             month: "short",
             year: "2-digit",
           }),
-          start: bucketStart,
+          start: cursor,
           endExclusive: bucketEnd,
           revenue: 0,
         });
@@ -562,6 +616,31 @@ export default function AdminDashboardPage() {
           Revenue is calculated from orders marked as paid in the app. It is
           not yet independently verified against a payment gateway.
         </p>
+      </section>
+
+      <section className="dashboard-section">
+        <h2 className="dashboard-section-title">Period Comparison</h2>
+        <p className="dashboard-comparison-description">
+          Compared with the immediately preceding period of equal duration.
+        </p>
+
+        <div className="dashboard-stats-grid">
+          <StatCard
+            label="Previous Period Revenue"
+            value={formatCurrency(comparison.previousRevenue)}
+            detail={`${comparison.previousOrderCount} orders in the previous period`}
+          />
+          <StatCard
+            label="Revenue Change"
+            value={comparison.revenueChange}
+            detail={`Current: ${formatCurrency(metrics.recordedRevenue)} · Previous: ${formatCurrency(comparison.previousRevenue)}`}
+          />
+          <StatCard
+            label="Order Count Change"
+            value={comparison.orderChange}
+            detail={`${metrics.rangeOrderCount} current orders · ${comparison.previousOrderCount} previous orders`}
+          />
+        </div>
       </section>
 
       <section className="dashboard-section">
